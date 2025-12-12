@@ -1,17 +1,46 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import Dialog from '../components/ui/Dialog.vue'
 import InvestDoctorCreateForm from '../components/InvestDoctor/InvestDoctorCreateForm.vue'
 import InvestDoctorCard from '../components/InvestDoctor/InvestDoctorCard.vue'
+import { getAgents, createAgent } from '../services/agents'
 import type { InvestDoctor, InvestDoctorCreateInput } from '../types/investDoctor'
 
 const isCreateOpen = ref(false)
 const formKey = ref(0)
 const items = ref<InvestDoctor[]>([])
+const isLoading = ref(false)
+const isSubmitting = ref(false)
 
 const sortedItems = computed(() =>
   [...items.value].sort((a, b) => b.createdAtIso.localeCompare(a.createdAtIso)),
 )
+
+// 將 API 返回的數據轉換為 InvestDoctor 格式
+function mapAgentToInvestDoctor(agent: any): InvestDoctor {
+  return {
+    id: String(agent.id ?? agent.agent_id ?? ''),
+    name: agent.name ?? '',
+    alias: agent.alias ?? '',
+    createdAtIso: agent.created_at ?? agent.createdAtIso ?? new Date().toISOString(),
+  }
+}
+
+async function loadAgents() {
+  isLoading.value = true
+  try {
+    const data = await getAgents()
+    // 處理數組或單個對象
+    const agents = Array.isArray(data) ? data : [data]
+    items.value = agents.map(mapAgentToInvestDoctor)
+  } catch (error) {
+    console.error('Failed to load agents:', error)
+    // 保持空數組，讓 UI 顯示空狀態
+    items.value = []
+  } finally {
+    isLoading.value = false
+  }
+}
 
 function openCreate() {
   isCreateOpen.value = true
@@ -22,18 +51,25 @@ function onCancelCreate() {
   isCreateOpen.value = false
 }
 
-function onCreate(payload: InvestDoctorCreateInput) {
-  const now = new Date()
-  const id = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${now.getTime()}`
-
-  items.value.push({
-    id,
-    createdAtIso: now.toISOString(),
-    ...payload,
-  })
-
-  isCreateOpen.value = false
+async function onCreate(payload: InvestDoctorCreateInput) {
+  isSubmitting.value = true
+  try {
+    const newAgent = await createAgent(payload)
+    const mappedAgent = mapAgentToInvestDoctor(newAgent)
+    items.value.push(mappedAgent)
+    isCreateOpen.value = false
+  } catch (error) {
+    console.error('Failed to create agent:', error)
+    // 可以添加錯誤提示給用戶
+    alert('建立投資大師失敗，請稍後再試')
+  } finally {
+    isSubmitting.value = false
+  }
 }
+
+onMounted(() => {
+  loadAgents()
+})
 </script>
 
 <template>
@@ -50,11 +86,17 @@ function onCreate(payload: InvestDoctorCreateInput) {
     </header>
 
     <Dialog v-model="isCreateOpen" title="新增投資大師">
-      <InvestDoctorCreateForm :key="formKey" @submit="onCreate" @cancel="onCancelCreate" />
+      <InvestDoctorCreateForm
+        :key="formKey"
+        :submitting="isSubmitting"
+        @submit="onCreate"
+        @cancel="onCancelCreate"
+      />
     </Dialog>
 
     <section class="Screen__Section" aria-label="投資大師列表">
-      <div v-if="sortedItems.length === 0" class="EmptyState">
+      <div v-if="isLoading" class="EmptyState">載入中...</div>
+      <div v-else-if="sortedItems.length === 0" class="EmptyState">
         尚未建立投資大師，請點右上角「新增投資大師」開始。
       </div>
 
