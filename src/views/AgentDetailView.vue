@@ -53,6 +53,7 @@ const reports = ref<any[]>([])
 const isLoadingReports = ref(false)
 const isPreviewReportOpen = ref(false)
 const previewingReport = ref<any | null>(null)
+const activeTab = ref<'md' | 'intelligence' | 'report'>('md')
 
 // 將 API 返回的數據轉換為 InvestDoctor 格式
 function mapAgentToInvestDoctor(agentData: any): InvestDoctor {
@@ -496,8 +497,83 @@ onMounted(async () => {
         </div>
       </div>
 
+      <!-- Tabs Navigation -->
+      <div class="DetailView__Tabs">
+        <button
+          class="DetailView__Tab"
+          :class="{ 'DetailView__Tab--active': activeTab === 'md' }"
+          type="button"
+          @click="activeTab = 'md'"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+            <polyline points="10 9 9 9 8 9"></polyline>
+          </svg>
+          Investment Master MD
+        </button>
+        <button
+          class="DetailView__Tab"
+          :class="{ 'DetailView__Tab--active': activeTab === 'intelligence' }"
+          type="button"
+          @click="activeTab = 'intelligence'"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <line x1="12" y1="1" x2="12" y2="23"></line>
+            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+          </svg>
+          Stock Intelligence
+        </button>
+        <button
+          class="DetailView__Tab"
+          :class="{ 'DetailView__Tab--active': activeTab === 'report' }"
+          type="button"
+          @click="activeTab = 'report'"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+          </svg>
+          Master Analysis Report
+        </button>
+      </div>
+
       <!-- Investment Master MD Section -->
-      <div class="DetailView__Section">
+      <div v-show="activeTab === 'md'" class="DetailView__Section">
         <div class="DetailView__SectionHeader">
           <h2 class="DetailView__SectionTitle">
             <svg
@@ -611,7 +687,7 @@ onMounted(async () => {
       </div>
 
       <!-- Stock Intelligence Section -->
-      <div class="DetailView__Section">
+      <div v-show="activeTab === 'intelligence'" class="DetailView__Section">
         <div class="DetailView__SectionHeader">
           <h2 class="DetailView__SectionTitle">
             <svg
@@ -730,7 +806,7 @@ onMounted(async () => {
       </div>
 
       <!-- Master Analysis Report Section -->
-      <div class="DetailView__Section">
+      <div v-show="activeTab === 'report'" class="DetailView__Section">
         <div class="DetailView__SectionHeader">
           <h2 class="DetailView__SectionTitle">
             <svg
@@ -1257,6 +1333,51 @@ onMounted(async () => {
 .DetailView__MetaDivider {
   color: #404040;
   font-size: 14px;
+}
+
+/* Tabs */
+.DetailView__Tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid #404040;
+  padding-bottom: 0;
+}
+
+.DetailView__Tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border: none;
+  background: transparent;
+  color: #6b7280;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: all 0.2s;
+  position: relative;
+  outline: none;
+}
+
+.DetailView__Tab:focus {
+  outline: none;
+}
+
+.DetailView__Tab:hover {
+  color: #ffffff;
+}
+
+.DetailView__Tab--active {
+  color: #f97316;
+  border-bottom-color: #f97316;
+}
+
+.DetailView__Tab svg {
+  width: 16px;
+  height: 16px;
 }
 
 /* Section */
