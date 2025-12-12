@@ -54,13 +54,12 @@ function onCancelCreate() {
 async function onCreate(payload: InvestDoctorCreateInput) {
   isSubmitting.value = true
   try {
-    const newAgent = await createAgent(payload)
-    const mappedAgent = mapAgentToInvestDoctor(newAgent)
-    items.value.push(mappedAgent)
+    await createAgent(payload)
+    // 創建成功後重新載入列表，確保數據一致性
+    await loadAgents()
     isCreateOpen.value = false
   } catch (error) {
     console.error('Failed to create agent:', error)
-    // 可以添加錯誤提示給用戶
     alert('建立投資大師失敗，請稍後再試')
   } finally {
     isSubmitting.value = false
