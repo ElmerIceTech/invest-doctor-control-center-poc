@@ -270,14 +270,6 @@ onMounted(async () => {
         </svg>
         返回
       </button>
-      <button
-        v-if="agent"
-        class="DetailView__CreateButton"
-        type="button"
-        @click="openCreatePrompt"
-      >
-        建立 Investment Master MD
-      </button>
     </header>
 
     <div v-if="isLoading" class="DetailView__Loading">載入中...</div>
