@@ -85,8 +85,14 @@ async function loadSystemPrompts() {
   isLoadingPrompts.value = true
   try {
     const data = await getAgentSystemPrompts(numericId)
-
-    systemPrompts.value = Array.isArray(data) ? data : [data]
+    // 處理 null、undefined 或空值的情況
+    if (data === null || data === undefined) {
+      systemPrompts.value = []
+    } else if (Array.isArray(data)) {
+      systemPrompts.value = data
+    } else {
+      systemPrompts.value = [data]
+    }
   } catch (err) {
     console.error('Failed to load system prompts:', err)
     systemPrompts.value = []
@@ -182,7 +188,10 @@ onMounted(async () => {
         <h2 class="DetailView__SectionTitle">Investment Master MD</h2>
         <div v-if="isLoadingPrompts" class="DetailView__LoadingPrompts">載入中...</div>
         <div v-else-if="systemPrompts.length === 0" class="DetailView__EmptyPrompts">
-          尚未建立 Investment Master MD，請點右上角「建立 Investment Master MD」開始。
+          <p class="DetailView__EmptyText">尚未建立 Investment Master MD</p>
+          <button class="DetailView__EmptyButton" type="button" @click="openCreatePrompt">
+            建立 Investment Master MD
+          </button>
         </div>
         <div v-else class="DetailView__PromptsList">
           <div
@@ -364,12 +373,44 @@ onMounted(async () => {
   color: #ffffff;
 }
 
-.DetailView__LoadingPrompts,
-.DetailView__EmptyPrompts {
+.DetailView__LoadingPrompts {
   text-align: center;
   padding: 40px 20px;
   color: #a3a3a3;
   font-size: 14px;
+}
+
+.DetailView__EmptyPrompts {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 60px 20px;
+  text-align: center;
+}
+
+.DetailView__EmptyText {
+  margin: 0;
+  color: #a3a3a3;
+  font-size: 14px;
+}
+
+.DetailView__EmptyButton {
+  border: 1px solid #f97316;
+  background: #f97316;
+  color: #000000;
+  border-radius: 10px;
+  padding: 12px 20px;
+  font-size: 14px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+
+.DetailView__EmptyButton:hover {
+  background: #ea580c;
+  border-color: #ea580c;
 }
 
 .DetailView__PromptsList {
