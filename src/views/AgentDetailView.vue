@@ -477,21 +477,14 @@ onMounted(async () => {
     <div v-else-if="agent" class="DetailView__Content">
       <!-- Agent Profile Section -->
       <div class="DetailView__ProfileCard">
-        <div class="DetailView__ProfileHeader">
-          <Avatar :name="agent.name" :size="80" />
-          <div class="DetailView__ProfileInfo">
-            <h1 class="DetailView__ProfileTitle">{{ agent.name }}</h1>
-            <p class="DetailView__ProfileSubtitle">{{ agent.alias }}</p>
-            <div class="DetailView__ProfileMeta">
-              <span class="DetailView__MetaItem">
-                <span class="DetailView__MetaLabel">ID</span>
-                <span class="DetailView__MetaValue">{{ agent.id }}</span>
-              </span>
-              <span class="DetailView__MetaDivider">•</span>
-              <span class="DetailView__MetaItem">
-                <span class="DetailView__MetaLabel">建立於</span>
-                <span class="DetailView__MetaValue">{{ formatDate(agent.createdAtIso) }}</span>
-              </span>
+        <div class="DetailView__ProfileContent">
+          <div class="DetailView__ProfileAvatarWrapper">
+            <Avatar :name="agent.name" :size="100" />
+          </div>
+          <div class="DetailView__ProfileMain">
+            <div class="DetailView__ProfileHeader">
+              <h1 class="DetailView__ProfileTitle">{{ agent.name }}</h1>
+              <div class="DetailView__ProfileBadge">{{ agent.alias }}</div>
             </div>
           </div>
         </div>
@@ -1269,31 +1262,80 @@ onMounted(async () => {
 /* Profile Card */
 .DetailView__ProfileCard {
   border: 1px solid #404040;
-  border-radius: 16px;
+  border-radius: 20px;
   background: linear-gradient(135deg, #1a1a1a 0%, #0f0f0f 100%);
-  padding: 32px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+  padding: 40px;
+  box-shadow: 0 8px 16px -4px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(249, 115, 22, 0.1);
+  margin-bottom: 32px;
+  position: relative;
+  overflow: hidden;
+}
+
+.DetailView__ProfileCard::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #f97316 0%, #ea580c 100%);
+}
+
+.DetailView__ProfileContent {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 32px;
+  text-align: left;
+}
+
+.DetailView__ProfileAvatarWrapper {
+  flex-shrink: 0;
+  position: relative;
+}
+
+.DetailView__ProfileAvatarWrapper::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.3) 0%, rgba(234, 88, 12, 0.1) 100%);
+  z-index: -1;
+}
+
+.DetailView__ProfileMain {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .DetailView__ProfileHeader {
   display: flex;
-  align-items: flex-start;
-  gap: 24px;
-}
-
-.DetailView__ProfileInfo {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
 .DetailView__ProfileTitle {
   margin: 0;
-  font-size: 32px;
+  font-size: 36px;
   font-weight: 700;
   color: #ffffff;
-  letter-spacing: -0.5px;
+  letter-spacing: -0.8px;
+  line-height: 1.2;
+}
+
+.DetailView__ProfileBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  background: rgba(249, 115, 22, 0.15);
+  color: #f97316;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid rgba(249, 115, 22, 0.3);
+  white-space: nowrap;
 }
 
 .DetailView__ProfileSubtitle {
@@ -1301,38 +1343,80 @@ onMounted(async () => {
   font-size: 18px;
   color: #a3a3a3;
   font-weight: 400;
+  line-height: 1.5;
 }
 
-.DetailView__ProfileMeta {
+.DetailView__ProfileDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.DetailView__ProfileDetailItem {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-top: 8px;
-  flex-wrap: wrap;
+  padding: 12px 16px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid #404040;
+  border-radius: 12px;
+  transition: all 0.2s;
 }
 
-.DetailView__MetaItem {
+.DetailView__ProfileDetailItem:hover {
+  border-color: rgba(249, 115, 22, 0.3);
+  background: rgba(249, 115, 22, 0.05);
+}
+
+.DetailView__DetailIcon {
+  flex-shrink: 0;
+  color: #f97316;
+  width: 20px;
+  height: 20px;
+}
+
+.DetailView__DetailContent {
   display: flex;
-  align-items: center;
-  gap: 6px;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
 }
 
-.DetailView__MetaLabel {
-  font-size: 13px;
+.DetailView__DetailLabel {
+  font-size: 12px;
   color: #6b7280;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
-.DetailView__MetaValue {
-  font-size: 13px;
+.DetailView__DetailValue {
+  font-size: 15px;
   color: #ffffff;
-  font-weight: 500;
+  font-weight: 600;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
     'Courier New', monospace;
 }
 
-.DetailView__MetaDivider {
-  color: #404040;
-  font-size: 14px;
+@media (max-width: 768px) {
+  .DetailView__ProfileContent {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .DetailView__ProfileHeader {
+    justify-content: center;
+  }
+
+  .DetailView__ProfileTitle {
+    font-size: 28px;
+  }
+
+  .DetailView__ProfileCard {
+    padding: 32px 24px;
+  }
 }
 
 /* Tabs */
