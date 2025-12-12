@@ -11,6 +11,7 @@ import {
   partialUpdateAgentSystemPrompt,
   deleteAgentSystemPrompt,
 } from '../services/agentSystemPrompts'
+import { getAgentUserMessages } from '../services/agentUserMessages'
 import type { InvestDoctor } from '../types/investDoctor'
 import type { CreateAgentSystemPrompts } from '../types/CreateAgentSystemPrompts'
 
@@ -35,6 +36,10 @@ const previewingPrompt = ref<any | null>(null)
 const isEditingInPreview = ref(false)
 const editingContent = ref('')
 const deletingIds = ref<Set<number>>(new Set())
+const userMessages = ref<any[]>([])
+const isLoadingUserMessages = ref(false)
+const isPreviewMessageOpen = ref(false)
+const previewingMessage = ref<any | null>(null)
 
 // 將 API 返回的數據轉換為 InvestDoctor 格式
 function mapAgentToInvestDoctor(agentData: any): InvestDoctor {
@@ -245,9 +250,40 @@ async function onDeletePrompt(prompt: any) {
   }
 }
 
+async function loadUserMessages() {
+  if (!agent.value) return
+
+  const numericId = Number.parseInt(agent.value.id, 10)
+  if (Number.isNaN(numericId)) {
+    console.error('Invalid agent ID')
+    return
+  }
+
+  isLoadingUserMessages.value = true
+  try {
+    const data = await getAgentUserMessages(numericId)
+    if (Array.isArray(data)) {
+      userMessages.value = data
+    } else {
+      userMessages.value = [data]
+    }
+  } catch (err) {
+    console.error('Failed to load user messages:', err)
+    userMessages.value = []
+  } finally {
+    isLoadingUserMessages.value = false
+  }
+}
+
+function openPreviewMessage(message: any) {
+  previewingMessage.value = { ...message }
+  isPreviewMessageOpen.value = true
+}
+
 onMounted(async () => {
   await loadAgent()
   await loadSystemPrompts()
+  await loadUserMessages()
 })
 </script>
 
@@ -410,6 +446,80 @@ onMounted(async () => {
           </div>
         </div>
       </div>
+
+      <!-- Stock Intelligence Section -->
+      <div class="DetailView__Section">
+        <div class="DetailView__SectionHeader">
+          <h2 class="DetailView__SectionTitle">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="DetailView__SectionIcon"
+            >
+              <line x1="12" y1="1" x2="12" y2="23"></line>
+              <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+            </svg>
+            Stock Intelligence
+          </h2>
+        </div>
+        <div v-if="isLoadingUserMessages" class="DetailView__LoadingState">
+          <div class="DetailView__Spinner"></div>
+          <span>載入中...</span>
+        </div>
+        <div v-else-if="userMessages.length === 0" class="DetailView__EmptyState">
+          <div class="DetailView__EmptyIcon">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="48"
+              height="48"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <line x1="12" y1="1" x2="12" y2="23"></line>
+              <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+            </svg>
+          </div>
+          <p class="DetailView__EmptyTitle">尚無 Stock Intelligence 資料</p>
+          <p class="DetailView__EmptyDescription">目前沒有用戶訊息記錄</p>
+        </div>
+        <div v-else class="DetailView__MessagesList">
+          <div
+            v-for="(message, index) in userMessages"
+            :key="message.id ?? message.user_message_id ?? index"
+            class="DetailView__MessageCard"
+            @click="openPreviewMessage(message)"
+          >
+            <div class="DetailView__MessageHeader">
+              <div class="DetailView__MessageStockId">
+                <span class="DetailView__MessageStockIdLabel">Stock ID:</span>
+                <span class="DetailView__MessageStockIdValue">{{ message.stock_id ?? 'N/A' }}</span>
+              </div>
+              <span
+                v-if="message.created_at || message.createdAtIso"
+                class="DetailView__MessageTime"
+              >
+                {{ formatDate(message.created_at ?? message.createdAtIso) }}
+              </span>
+            </div>
+            <div class="DetailView__MessageContent">
+              <pre class="DetailView__MessageText">{{
+                truncateContent(message.content ?? message.message ?? '')
+              }}</pre>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <Dialog v-model="isCreatePromptOpen" title="建立 Investment Master MD" size="md">
@@ -530,6 +640,44 @@ onMounted(async () => {
           >
             {{ isSubmitting ? '儲存中...' : '儲存' }}
           </button>
+        </div>
+      </div>
+    </Dialog>
+
+    <!-- Stock Intelligence Preview Dialog -->
+    <Dialog
+      v-model="isPreviewMessageOpen"
+      title="Stock Intelligence 預覽"
+      size="xl"
+    >
+      <div v-if="previewingMessage" class="DetailView__PreviewContent">
+        <div class="DetailView__PreviewHeader">
+          <div class="DetailView__PreviewMeta">
+            <div class="DetailView__PreviewField">
+              <span class="DetailView__PreviewLabel">Stock ID</span>
+              <span class="DetailView__PreviewValue DetailView__PreviewValue--version">
+                {{ previewingMessage.stock_id ?? 'N/A' }}
+              </span>
+            </div>
+            <div class="DetailView__PreviewField">
+              <span class="DetailView__PreviewLabel">建立時間</span>
+              <span class="DetailView__PreviewValue DetailView__PreviewValue--mono">
+                {{
+                  formatDate(
+                    previewingMessage.created_at ?? previewingMessage.createdAtIso ?? '',
+                  )
+                }}
+              </span>
+            </div>
+          </div>
+        </div>
+        <div class="DetailView__PreviewBody">
+          <div class="DetailView__PreviewContentField">
+            <span class="DetailView__PreviewLabel">內容</span>
+            <pre class="DetailView__PreviewContentText">{{
+              previewingMessage.content ?? previewingMessage.message ?? ''
+            }}</pre>
+          </div>
         </div>
       </div>
     </Dialog>
@@ -874,6 +1022,79 @@ onMounted(async () => {
   white-space: pre-wrap;
   word-wrap: break-word;
   overflow: hidden;
+}
+
+/* Stock Intelligence Styles */
+.DetailView__MessagesList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.DetailView__MessageCard {
+  border: 1px solid #404040;
+  border-radius: 12px;
+  padding: 20px;
+  background: #000000;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.DetailView__MessageCard:hover {
+  border-color: #f97316;
+  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.1);
+  transform: translateY(-2px);
+}
+
+.DetailView__MessageHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  gap: 16px;
+}
+
+.DetailView__MessageStockId {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.DetailView__MessageStockIdLabel {
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.DetailView__MessageStockIdValue {
+  font-size: 13px;
+  color: #f97316;
+  font-weight: 600;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Courier New', monospace;
+}
+
+.DetailView__MessageTime {
+  font-size: 11px;
+  color: #6b7280;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Courier New', monospace;
+  white-space: nowrap;
+}
+
+.DetailView__MessageContent {
+  flex: 1;
+}
+
+.DetailView__MessageText {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.7;
+  color: #d1d5db;
+  white-space: pre-wrap;
+  word-wrap: break-word;
 }
 
 /* Preview Dialog Styles */

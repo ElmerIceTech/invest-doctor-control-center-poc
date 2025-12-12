@@ -8,5 +8,6 @@ export const getAgentUserMessages = async (agentId: number) => {
   if (!response.ok) throw new Error("fetch agent user messages failed");
 
   const data = await response.json();
+  console.log('getAgentUserMessages', data)
   return data;
 };
