@@ -127,7 +127,6 @@ async function onCreatePrompt(payload: CreateAgentSystemPrompts) {
   isSubmitting.value = true
   try {
     await createAgentSystemPrompts(payload)
-    alert('Investment Master MD 建立成功')
     isCreatePromptOpen.value = false
     // 重新載入 system prompts 列表
     await loadSystemPrompts()
