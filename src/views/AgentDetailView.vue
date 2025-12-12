@@ -62,6 +62,28 @@ function goBack() {
   router.push('/')
 }
 
+function formatDate(dateString: string): string {
+  if (!dateString) return 'N/A'
+  try {
+    const date = new Date(dateString)
+    return date.toLocaleDateString('zh-TW', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  } catch {
+    return dateString
+  }
+}
+
+function truncateContent(content: string, maxLength: number = 200): string {
+  if (!content) return ''
+  if (content.length <= maxLength) return content
+  return content.substring(0, maxLength) + '...'
+}
+
 function openCreatePrompt() {
   isCreatePromptOpen.value = true
   formKey.value += 1
@@ -155,61 +177,136 @@ onMounted(async () => {
     <div v-if="isLoading" class="DetailView__Loading">載入中...</div>
     <div v-else-if="error" class="DetailView__Error">{{ error }}</div>
     <div v-else-if="agent" class="DetailView__Content">
-      <div class="DetailView__Card">
-        <div class="DetailView__HeaderSection">
-          <Avatar :name="agent.name" :size="64" />
-          <div class="DetailView__TitleGroup">
-            <h1 class="DetailView__Title">{{ agent.name }}</h1>
-            <p class="DetailView__Subtitle">{{ agent.alias }}</p>
-          </div>
-        </div>
-
-        <div class="DetailView__Body">
-          <div class="DetailView__Field">
-            <span class="DetailView__Label">ID</span>
-            <span class="DetailView__Value DetailView__Value--mono">{{ agent.id }}</span>
-          </div>
-          <div class="DetailView__Field">
-            <span class="DetailView__Label">名稱</span>
-            <span class="DetailView__Value">{{ agent.name }}</span>
-          </div>
-          <div class="DetailView__Field">
-            <span class="DetailView__Label">別名</span>
-            <span class="DetailView__Value">{{ agent.alias }}</span>
-          </div>
-          <div class="DetailView__Field">
-            <span class="DetailView__Label">建立時間</span>
-            <span class="DetailView__Value DetailView__Value--mono">{{ agent.createdAtIso }}</span>
+      <!-- Agent Profile Section -->
+      <div class="DetailView__ProfileCard">
+        <div class="DetailView__ProfileHeader">
+          <Avatar :name="agent.name" :size="80" />
+          <div class="DetailView__ProfileInfo">
+            <h1 class="DetailView__ProfileTitle">{{ agent.name }}</h1>
+            <p class="DetailView__ProfileSubtitle">{{ agent.alias }}</p>
+            <div class="DetailView__ProfileMeta">
+              <span class="DetailView__MetaItem">
+                <span class="DetailView__MetaLabel">ID</span>
+                <span class="DetailView__MetaValue">{{ agent.id }}</span>
+              </span>
+              <span class="DetailView__MetaDivider">•</span>
+              <span class="DetailView__MetaItem">
+                <span class="DetailView__MetaLabel">建立於</span>
+                <span class="DetailView__MetaValue">{{ formatDate(agent.createdAtIso) }}</span>
+              </span>
+            </div>
           </div>
         </div>
       </div>
 
-      <div class="DetailView__Card">
-        <h2 class="DetailView__SectionTitle">Investment Master MD</h2>
-        <div v-if="isLoadingPrompts" class="DetailView__LoadingPrompts">載入中...</div>
-        <div v-else-if="systemPrompts.length === 0" class="DetailView__EmptyPrompts">
-          <p class="DetailView__EmptyText">尚未建立 Investment Master MD</p>
+      <!-- Investment Master MD Section -->
+      <div class="DetailView__Section">
+        <div class="DetailView__SectionHeader">
+          <h2 class="DetailView__SectionTitle">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="DetailView__SectionIcon"
+            >
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+              <polyline points="10 9 9 9 8 9"></polyline>
+            </svg>
+            Investment Master MD
+          </h2>
+          <button
+            v-if="systemPrompts.length > 0"
+            class="DetailView__AddButton"
+            type="button"
+            @click="openCreatePrompt"
+            aria-label="新增"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            新增
+          </button>
+        </div>
+        <div v-if="isLoadingPrompts" class="DetailView__LoadingState">
+          <div class="DetailView__Spinner"></div>
+          <span>載入中...</span>
+        </div>
+        <div v-else-if="systemPrompts.length === 0" class="DetailView__EmptyState">
+          <div class="DetailView__EmptyIcon">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="48"
+              height="48"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+            </svg>
+          </div>
+          <p class="DetailView__EmptyTitle">尚未建立 Investment Master MD</p>
+          <p class="DetailView__EmptyDescription">開始建立您的第一個 Investment Master MD 文件</p>
           <button class="DetailView__EmptyButton" type="button" @click="openCreatePrompt">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
             建立 Investment Master MD
           </button>
         </div>
-        <div v-else class="DetailView__PromptsList">
+        <div v-else class="DetailView__PromptsGrid">
           <div
             v-for="prompt in systemPrompts"
             :key="prompt.id ?? prompt.system_prompt_id"
-            class="DetailView__PromptItem"
+            class="DetailView__PromptCard"
           >
-            <div class="DetailView__PromptHeader">
-              <span class="DetailView__PromptVersion">{{ prompt.version ?? 'N/A' }}</span>
+            <div class="DetailView__PromptCardHeader">
+              <div class="DetailView__PromptBadge">{{ prompt.version ?? 'N/A' }}</div>
               <span
                 v-if="prompt.created_at || prompt.createdAtIso"
-                class="DetailView__PromptDate"
+                class="DetailView__PromptTime"
               >
-                {{ prompt.created_at ?? prompt.createdAtIso }}
+                {{ formatDate(prompt.created_at ?? prompt.createdAtIso) }}
               </span>
             </div>
-            <div class="DetailView__PromptContent">
-              <pre class="DetailView__PromptPreview">{{ prompt.content ?? '' }}</pre>
+            <div class="DetailView__PromptCardContent">
+              <pre class="DetailView__PromptText">{{ truncateContent(prompt.content ?? '') }}</pre>
             </div>
           </div>
         </div>
@@ -230,8 +327,8 @@ onMounted(async () => {
 
 <style scoped>
 .DetailView {
-  padding: 20px;
-  max-width: 800px;
+  padding: 24px;
+  max-width: 1200px;
   margin: 0 auto;
   background-color: #000000;
   min-height: 100vh;
@@ -297,176 +394,274 @@ onMounted(async () => {
 .DetailView__Content {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 24px;
 }
 
-.DetailView__Card {
+/* Profile Card */
+.DetailView__ProfileCard {
   border: 1px solid #404040;
-  border-radius: 12px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #1a1a1a 0%, #0f0f0f 100%);
+  padding: 32px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+}
+
+.DetailView__ProfileHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
+}
+
+.DetailView__ProfileInfo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.DetailView__ProfileTitle {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: -0.5px;
+}
+
+.DetailView__ProfileSubtitle {
+  margin: 0;
+  font-size: 18px;
+  color: #a3a3a3;
+  font-weight: 400;
+}
+
+.DetailView__ProfileMeta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.DetailView__MetaItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.DetailView__MetaLabel {
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.DetailView__MetaValue {
+  font-size: 13px;
+  color: #ffffff;
+  font-weight: 500;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Courier New', monospace;
+}
+
+.DetailView__MetaDivider {
+  color: #404040;
+  font-size: 14px;
+}
+
+/* Section */
+.DetailView__Section {
+  border: 1px solid #404040;
+  border-radius: 16px;
   background: #1a1a1a;
   padding: 24px;
 }
 
-.DetailView__HeaderSection {
+.DetailView__SectionHeader {
   display: flex;
-  align-items: flex-start;
-  gap: 16px;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 24px;
-  padding-bottom: 24px;
+  padding-bottom: 20px;
   border-bottom: 1px solid #404040;
 }
 
-.DetailView__TitleGroup {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  flex: 1;
-}
-
-.DetailView__Title {
-  margin: 0;
-  font-size: 24px;
-  font-weight: 600;
-  color: #ffffff;
-}
-
-.DetailView__Subtitle {
-  margin: 0;
-  font-size: 16px;
-  color: #a3a3a3;
-}
-
-.DetailView__Body {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.DetailView__Field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.DetailView__Label {
-  font-size: 12px;
-  color: #a3a3a3;
-  font-weight: 500;
-}
-
-.DetailView__Value {
-  font-size: 16px;
-  color: #ffffff;
-}
-
-.DetailView__Value--mono {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
-    'Courier New', monospace;
-  font-size: 14px;
-  color: #a3a3a3;
-}
-
 .DetailView__SectionTitle {
-  margin: 0 0 20px 0;
-  font-size: 20px;
+  margin: 0;
+  font-size: 22px;
   font-weight: 600;
   color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-.DetailView__LoadingPrompts {
-  text-align: center;
-  padding: 40px 20px;
+.DetailView__SectionIcon {
+  color: #f97316;
+}
+
+.DetailView__AddButton {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #f97316;
+  background: transparent;
+  color: #f97316;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.DetailView__AddButton:hover {
+  background: #f97316;
+  color: #000000;
+}
+
+/* Loading State */
+.DetailView__LoadingState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 60px 20px;
   color: #a3a3a3;
   font-size: 14px;
 }
 
-.DetailView__EmptyPrompts {
+.DetailView__Spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #404040;
+  border-top-color: #f97316;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Empty State */
+.DetailView__EmptyState {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 16px;
-  padding: 60px 20px;
+  padding: 80px 20px;
   text-align: center;
 }
 
-.DetailView__EmptyText {
+.DetailView__EmptyIcon {
+  color: #404040;
+  margin-bottom: 8px;
+}
+
+.DetailView__EmptyTitle {
   margin: 0;
-  color: #a3a3a3;
+  font-size: 18px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.DetailView__EmptyDescription {
+  margin: 0;
+  color: #6b7280;
   font-size: 14px;
 }
 
 .DetailView__EmptyButton {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   border: 1px solid #f97316;
   background: #f97316;
   color: #000000;
   border-radius: 10px;
-  padding: 12px 20px;
+  padding: 12px 24px;
   font-size: 14px;
   cursor: pointer;
   font-weight: 600;
-  transition: background-color 0.2s, border-color 0.2s;
+  transition: all 0.2s;
+  margin-top: 8px;
 }
 
 .DetailView__EmptyButton:hover {
   background: #ea580c;
   border-color: #ea580c;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.3);
 }
 
-.DetailView__PromptsList {
-  display: flex;
-  flex-direction: column;
+/* Prompts Grid */
+.DetailView__PromptsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 16px;
 }
 
-.DetailView__PromptItem {
+.DetailView__PromptCard {
   border: 1px solid #404040;
-  border-radius: 10px;
-  padding: 16px;
+  border-radius: 12px;
+  padding: 20px;
   background: #000000;
-  transition: border-color 0.2s;
+  transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
-.DetailView__PromptItem:hover {
+.DetailView__PromptCard:hover {
   border-color: #f97316;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.2);
 }
 
-.DetailView__PromptHeader {
+.DetailView__PromptCardHeader {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid #404040;
+  gap: 12px;
 }
 
-.DetailView__PromptVersion {
-  font-size: 16px;
-  font-weight: 600;
+.DetailView__PromptBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  background: rgba(249, 115, 22, 0.15);
   color: #f97316;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid rgba(249, 115, 22, 0.3);
 }
 
-.DetailView__PromptDate {
-  font-size: 12px;
-  color: #a3a3a3;
+.DetailView__PromptTime {
+  font-size: 11px;
+  color: #6b7280;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
     'Courier New', monospace;
+  white-space: nowrap;
 }
 
-.DetailView__PromptContent {
-  max-height: 200px;
-  overflow-y: auto;
+.DetailView__PromptCardContent {
+  flex: 1;
+  min-height: 120px;
 }
 
-.DetailView__PromptPreview {
+.DetailView__PromptText {
   margin: 0;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
     'Courier New', monospace;
-  font-size: 13px;
-  line-height: 1.6;
-  color: #ffffff;
+  font-size: 12px;
+  line-height: 1.7;
+  color: #d1d5db;
   white-space: pre-wrap;
   word-wrap: break-word;
+  overflow: hidden;
 }
 </style>
 
