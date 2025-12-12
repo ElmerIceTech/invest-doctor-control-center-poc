@@ -5,9 +5,11 @@ const props = withDefaults(
   defineProps<{
     modelValue: boolean
     title?: string
+    size?: 'sm' | 'md' | 'lg' | 'xl'
   }>(),
   {
     title: '',
+    size: 'md',
   },
 )
 
@@ -62,7 +64,7 @@ onUnmounted(() => {
         :aria-labelledby="title ? 'dialog-title' : undefined"
         @click="onBackdropClick"
       >
-        <div class="Dialog__Content">
+        <div class="Dialog__Content" :class="`Dialog__Content--${props.size}`">
           <header v-if="title" class="Dialog__Header">
             <h2 id="dialog-title" class="Dialog__Title">{{ title }}</h2>
             <button
@@ -112,13 +114,29 @@ onUnmounted(() => {
 .Dialog__Content {
   position: relative;
   width: 100%;
-  max-width: 500px;
-  max-height: 90vh;
-  overflow-y: auto;
+  max-height: 95vh;
+  display: flex;
+  flex-direction: column;
   background: #1a1a1a;
   border: 1px solid #f97316;
   border-radius: 12px;
   box-shadow: 0 20px 25px -5px rgba(249, 115, 22, 0.3), 0 10px 10px -5px rgba(249, 115, 22, 0.2);
+}
+
+.Dialog__Content--sm {
+  max-width: 400px;
+}
+
+.Dialog__Content--md {
+  max-width: 500px;
+}
+
+.Dialog__Content--lg {
+  max-width: 800px;
+}
+
+.Dialog__Content--xl {
+  max-width: 1000px;
 }
 
 .Dialog__Header {
@@ -161,6 +179,9 @@ onUnmounted(() => {
 
 .Dialog__Body {
   padding: 20px;
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 /* Transition animations */

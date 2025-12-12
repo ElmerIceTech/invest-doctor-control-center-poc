@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Dialog from '../components/ui/Dialog.vue'
 import Avatar from '../components/ui/Avatar.vue'
@@ -21,22 +21,18 @@ const agent = ref<InvestDoctor | null>(null)
 const isLoading = ref(false)
 const error = ref<string | null>(null)
 const isCreatePromptOpen = ref(false)
-const isEditPromptOpen = ref(false)
+const isPreviewPromptOpen = ref(false)
 const formKey = ref(0)
-const editFormKey = ref(0)
 const isSubmitting = ref(false)
 const systemPromptFormRef = ref<{
   setAgentId: (id: number) => void
   reset: () => void
 } | null>(null)
-const editPromptFormRef = ref<{
-  setAgentId: (id: number) => void
-  setInitialValues: (version: string, content: string) => void
-  reset: () => void
-} | null>(null)
 const systemPrompts = ref<any[]>([])
 const isLoadingPrompts = ref(false)
-const editingPrompt = ref<any | null>(null)
+const previewingPrompt = ref<any | null>(null)
+const isEditingInPreview = ref(false)
+const editingContent = ref('')
 
 // 將 API 返回的數據轉換為 InvestDoctor 格式
 function mapAgentToInvestDoctor(agentData: any): InvestDoctor {
@@ -151,36 +147,48 @@ async function onCreatePrompt(payload: CreateAgentSystemPrompts) {
   }
 }
 
-function openEditPrompt(prompt: any) {
-  editingPrompt.value = prompt
-  isEditPromptOpen.value = true
-  editFormKey.value += 1
-  // 等待下一個 tick 確保組件已掛載
-  setTimeout(() => {
-    const numericId = Number(agentId)
-    if (!isNaN(numericId) && editPromptFormRef.value) {
-      editPromptFormRef.value.setAgentId(numericId)
-      editPromptFormRef.value.setInitialValues(
-        prompt.version ?? '',
-        prompt.content ?? '',
-      )
-    }
-  }, 0)
+function openPreviewPrompt(prompt: any) {
+  previewingPrompt.value = { ...prompt }
+  editingContent.value = prompt.content ?? ''
+  isEditingInPreview.value = false
+  isPreviewPromptOpen.value = true
 }
 
-function onCancelEditPrompt() {
-  isEditPromptOpen.value = false
-  editingPrompt.value = null
+// 監聽 dialog 關閉，重置編輯狀態
+watch(isPreviewPromptOpen, (isOpen) => {
+  if (!isOpen) {
+    isEditingInPreview.value = false
+    editingContent.value = ''
+    previewingPrompt.value = null
+  }
+})
+
+function startEditInPreview() {
+  if (!previewingPrompt.value) return
+  editingContent.value = previewingPrompt.value.content ?? ''
+  isEditingInPreview.value = true
 }
 
-async function onUpdatePrompt(payload: CreateAgentSystemPrompts) {
-  if (!editingPrompt.value) return
+function cancelEditInPreview() {
+  if (!previewingPrompt.value) return
+  editingContent.value = previewingPrompt.value.content ?? ''
+  isEditingInPreview.value = false
+}
+
+async function saveEditInPreview() {
+  if (!previewingPrompt.value) return
+
+  const content = editingContent.value.trim()
+  if (!content) {
+    alert('內容不能為空')
+    return
+  }
 
   isSubmitting.value = true
   try {
     const numericId = Number(agentId)
     const promptId = Number(
-      editingPrompt.value.id ?? editingPrompt.value.system_prompt_id ?? 0,
+      previewingPrompt.value.id ?? previewingPrompt.value.system_prompt_id ?? 0,
     )
 
     if (isNaN(numericId) || isNaN(promptId)) {
@@ -190,11 +198,12 @@ async function onUpdatePrompt(payload: CreateAgentSystemPrompts) {
     await partialUpdateAgentSystemPrompt({
       agentId: numericId,
       agentSystemPromptId: promptId,
-      content: payload.content,
+      content: content,
     })
 
-    isEditPromptOpen.value = false
-    editingPrompt.value = null
+    // 更新本地數據
+    previewingPrompt.value.content = content
+    isEditingInPreview.value = false
     // 重新載入 system prompts 列表
     await loadSystemPrompts()
   } catch (err) {
@@ -361,7 +370,7 @@ onMounted(async () => {
             v-for="prompt in systemPrompts"
             :key="prompt.id ?? prompt.system_prompt_id"
             class="DetailView__PromptCard"
-            @click="openEditPrompt(prompt)"
+            @click="openPreviewPrompt(prompt)"
           >
             <div class="DetailView__PromptCardHeader">
               <div class="DetailView__PromptBadge">{{ prompt.version ?? 'N/A' }}</div>
@@ -380,7 +389,7 @@ onMounted(async () => {
       </div>
     </div>
 
-    <Dialog v-model="isCreatePromptOpen" title="建立 Investment Master MD">
+    <Dialog v-model="isCreatePromptOpen" title="建立 Investment Master MD" size="md">
       <SystemPromptForm
         ref="systemPromptFormRef"
         :key="formKey"
@@ -391,17 +400,89 @@ onMounted(async () => {
       />
     </Dialog>
 
-    <Dialog v-model="isEditPromptOpen" title="編輯 Investment Master MD">
-      <SystemPromptForm
-        ref="editPromptFormRef"
-        :key="editFormKey"
-        :submitting="isSubmitting"
-        :is-edit-mode="true"
-        :initial-version="editingPrompt?.version ?? ''"
-        :initial-content="editingPrompt?.content ?? ''"
-        @submit="onUpdatePrompt"
-        @cancel="onCancelEditPrompt"
-      />
+    <!-- Preview Dialog -->
+    <Dialog
+      v-model="isPreviewPromptOpen"
+      :title="isEditingInPreview ? '編輯 Investment Master MD' : 'Investment Master MD 預覽'"
+      size="xl"
+    >
+      <div v-if="previewingPrompt" class="DetailView__PreviewContent">
+        <div class="DetailView__PreviewHeader">
+          <div class="DetailView__PreviewMeta">
+            <div class="DetailView__PreviewField">
+              <span class="DetailView__PreviewLabel">版本號</span>
+              <span class="DetailView__PreviewValue DetailView__PreviewValue--version">
+                {{ previewingPrompt.version ?? 'N/A' }}
+              </span>
+            </div>
+            <div class="DetailView__PreviewField">
+              <span class="DetailView__PreviewLabel">建立時間</span>
+              <span class="DetailView__PreviewValue DetailView__PreviewValue--mono">
+                {{
+                  formatDate(
+                    previewingPrompt.created_at ?? previewingPrompt.createdAtIso ?? '',
+                  )
+                }}
+              </span>
+            </div>
+          </div>
+          <div v-if="!isEditingInPreview" class="DetailView__PreviewActions">
+            <button
+              class="DetailView__PreviewEditButton"
+              type="button"
+              @click="startEditInPreview"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+              </svg>
+              編輯
+            </button>
+          </div>
+        </div>
+        <div class="DetailView__PreviewBody">
+          <div class="DetailView__PreviewContentField">
+            <span class="DetailView__PreviewLabel">內容</span>
+            <pre v-if="!isEditingInPreview" class="DetailView__PreviewContentText">{{
+              previewingPrompt.content ?? ''
+            }}</pre>
+            <textarea
+              v-else
+              v-model="editingContent"
+              class="DetailView__PreviewTextarea"
+              placeholder="請輸入 Investment Master MD 內容..."
+            />
+          </div>
+        </div>
+        <div v-if="isEditingInPreview" class="DetailView__PreviewEditActions">
+          <button
+            class="DetailView__PreviewCancelButton"
+            type="button"
+            @click="cancelEditInPreview"
+            :disabled="isSubmitting"
+          >
+            取消
+          </button>
+          <button
+            class="DetailView__PreviewSaveButton"
+            type="button"
+            @click="saveEditInPreview"
+            :disabled="isSubmitting"
+          >
+            {{ isSubmitting ? '儲存中...' : '儲存' }}
+          </button>
+        </div>
+      </div>
     </Dialog>
   </main>
 </template>
@@ -744,6 +825,212 @@ onMounted(async () => {
   white-space: pre-wrap;
   word-wrap: break-word;
   overflow: hidden;
+}
+
+/* Preview Dialog Styles */
+.DetailView__PreviewContent {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  height: 100%;
+  min-height: 0;
+}
+
+.DetailView__PreviewHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #404040;
+  flex-shrink: 0;
+}
+
+.DetailView__PreviewMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+}
+
+.DetailView__PreviewField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.DetailView__PreviewLabel {
+  font-size: 12px;
+  color: #a3a3a3;
+  font-weight: 500;
+}
+
+.DetailView__PreviewValue {
+  font-size: 16px;
+  color: #ffffff;
+}
+
+.DetailView__PreviewValue--version {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  background: rgba(249, 115, 22, 0.15);
+  color: #f97316;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  border: 1px solid rgba(249, 115, 22, 0.3);
+  width: fit-content;
+}
+
+.DetailView__PreviewValue--mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Courier New', monospace;
+  font-size: 13px;
+  color: #a3a3a3;
+}
+
+.DetailView__PreviewEditButton {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #f97316;
+  background: #f97316;
+  color: #000000;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 14px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.DetailView__PreviewEditButton:hover {
+  background: #ea580c;
+  border-color: #ea580c;
+}
+
+.DetailView__PreviewBody {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+  min-height: 0;
+}
+
+.DetailView__PreviewContentField {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+  min-height: 0;
+}
+
+.DetailView__PreviewContentText {
+  margin: 0;
+  padding: 16px;
+  border: 1px solid #404040;
+  border-radius: 10px;
+  background: #000000;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.7;
+  color: #ffffff;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  max-height: calc(95vh - 300px);
+  overflow-y: auto;
+  flex: 1;
+  min-height: 200px;
+}
+
+.DetailView__PreviewTextarea {
+  width: 100%;
+  padding: 16px;
+  border: 1px solid #404040;
+  border-radius: 10px;
+  background: #000000;
+  color: #ffffff;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.7;
+  resize: vertical;
+  outline: none;
+  height: calc(95vh - 380px);
+  min-height: 300px;
+  max-height: calc(95vh - 380px);
+  box-sizing: border-box;
+}
+
+.DetailView__PreviewTextarea:focus {
+  border-color: #f97316;
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.2);
+}
+
+.DetailView__PreviewTextarea::placeholder {
+  color: #525252;
+}
+
+.DetailView__PreviewActions {
+  display: flex;
+  align-items: center;
+}
+
+.DetailView__PreviewEditActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 16px;
+  border-top: 1px solid #404040;
+  flex-shrink: 0;
+}
+
+.DetailView__PreviewCancelButton {
+  border: 1px solid #404040;
+  background: #000000;
+  color: #ffffff;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 14px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.DetailView__PreviewCancelButton:hover:not(:disabled) {
+  background: #1a1a1a;
+  border-color: #f97316;
+  color: #f97316;
+}
+
+.DetailView__PreviewCancelButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.DetailView__PreviewSaveButton {
+  border: 1px solid #f97316;
+  background: #f97316;
+  color: #000000;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 14px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.DetailView__PreviewSaveButton:hover:not(:disabled) {
+  background: #ea580c;
+  border-color: #ea580c;
+}
+
+.DetailView__PreviewSaveButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 </style>
 
