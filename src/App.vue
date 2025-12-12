@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import InvestDoctorScreen from './views/InvestDoctorScreen.vue'
+import { RouterView } from 'vue-router'
 </script>
 
 <template>
-  <InvestDoctorScreen />
+  <RouterView />
 </template>
 
 <style scoped>

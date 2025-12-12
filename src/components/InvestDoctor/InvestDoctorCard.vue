@@ -1,6 +1,9 @@
 <script setup lang="ts">
+import { useRouter } from 'vue-router'
 import Avatar from '../ui/Avatar.vue'
 import type { InvestDoctor } from '../../types/investDoctor'
+
+const router = useRouter()
 
 const props = withDefaults(
   defineProps<{
@@ -16,15 +19,20 @@ const emit = defineEmits<{
   delete: [id: string]
 }>()
 
-function handleDelete() {
+function handleDelete(event: MouseEvent) {
+  event.stopPropagation()
   if (confirm('確定要刪除此投資大師嗎？')) {
     emit('delete', props.item.id)
   }
 }
+
+function handleCardClick() {
+  router.push(`/agent/${props.item.id}`)
+}
 </script>
 
 <template>
-  <article class="Card">
+  <article class="Card" @click="handleCardClick">
     <button
       class="Card__DeleteButton"
       type="button"
@@ -73,6 +81,7 @@ function handleDelete() {
   background: #1a1a1a;
   padding: 16px;
   transition: box-shadow 0.2s, border-color 0.2s;
+  cursor: pointer;
 }
 
 .Card:hover {
