@@ -11,7 +11,7 @@ import {
   partialUpdateAgentSystemPrompt,
   deleteAgentSystemPrompt,
 } from '../services/agentSystemPrompts'
-import { getAgentUserMessages } from '../services/agentUserMessages'
+import { getAgentUserMessages, generateAgentUserMsg } from '../services/agentUserMessages'
 import type { InvestDoctor } from '../types/investDoctor'
 import type { CreateAgentSystemPrompts } from '../types/CreateAgentSystemPrompts'
 
@@ -40,6 +40,7 @@ const userMessages = ref<any[]>([])
 const isLoadingUserMessages = ref(false)
 const isPreviewMessageOpen = ref(false)
 const previewingMessage = ref<any | null>(null)
+const isGeneratingUserMsg = ref(false)
 
 // 將 API 返回的數據轉換為 InvestDoctor 格式
 function mapAgentToInvestDoctor(agentData: any): InvestDoctor {
@@ -280,6 +281,28 @@ function openPreviewMessage(message: any) {
   isPreviewMessageOpen.value = true
 }
 
+async function onCreateStockIntelligence() {
+  if (!agent.value) return
+
+  const numericId = Number.parseInt(agent.value.id, 10)
+  if (Number.isNaN(numericId)) {
+    console.error('Invalid agent ID')
+    return
+  }
+
+  isGeneratingUserMsg.value = true
+  try {
+    await generateAgentUserMsg(numericId, "2330.TW")
+    // 重新載入 user messages 列表
+    await loadUserMessages()
+  } catch (err) {
+    console.error('Failed to generate user message:', err)
+    alert('建立 Stock Intelligence 失敗，請稍後再試')
+  } finally {
+    isGeneratingUserMsg.value = false
+  }
+}
+
 onMounted(async () => {
   await loadAgent()
   await loadSystemPrompts()
@@ -468,6 +491,29 @@ onMounted(async () => {
             </svg>
             Stock Intelligence
           </h2>
+          <button
+            class="DetailView__AddButton"
+            type="button"
+            @click="onCreateStockIntelligence"
+            :disabled="isGeneratingUserMsg"
+            aria-label="建立 Stock Intelligence"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            {{ isGeneratingUserMsg ? '建立中...' : '建立 Stock Intelligence' }}
+          </button>
         </div>
         <div v-if="isLoadingUserMessages" class="DetailView__LoadingState">
           <div class="DetailView__Spinner"></div>
