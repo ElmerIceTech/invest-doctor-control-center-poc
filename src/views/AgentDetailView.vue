@@ -263,7 +263,10 @@ async function loadUserMessages() {
   isLoadingUserMessages.value = true
   try {
     const data = await getAgentUserMessages(numericId)
-    if (Array.isArray(data)) {
+    console.log(data)
+    if (data === null || data === undefined) {
+      userMessages.value = []
+    } else if (Array.isArray(data)) {
       userMessages.value = data
     } else {
       userMessages.value = [data]
@@ -492,6 +495,7 @@ onMounted(async () => {
             Stock Intelligence
           </h2>
           <button
+            v-if="userMessages.length > 0"
             class="DetailView__AddButton"
             type="button"
             @click="onCreateStockIntelligence"
@@ -536,8 +540,29 @@ onMounted(async () => {
               <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
             </svg>
           </div>
-          <p class="DetailView__EmptyTitle">尚無 Stock Intelligence 資料</p>
-          <p class="DetailView__EmptyDescription">目前沒有用戶訊息記錄</p>
+          <p class="DetailView__EmptyTitle">尚未建立 Stock Intelligence</p>
+          <button
+            class="DetailView__EmptyButton"
+            type="button"
+            @click="onCreateStockIntelligence"
+            :disabled="isGeneratingUserMsg"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            {{ isGeneratingUserMsg ? '建立中...' : '建立 Stock Intelligence' }}
+          </button>
         </div>
         <div v-else class="DetailView__MessagesList">
           <div
