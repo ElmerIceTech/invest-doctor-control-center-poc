@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import Dialog from '../components/ui/Dialog.vue'
 import InvestDoctorCreateForm from '../components/InvestDoctor/InvestDoctorCreateForm.vue'
 import InvestDoctorCard from '../components/InvestDoctor/InvestDoctorCard.vue'
-import { getAgents, createAgent } from '../services/agents'
+import { getAgents, createAgent, deleteAgent } from '../services/agents'
 import type { InvestDoctor, InvestDoctorCreateInput } from '../types/investDoctor'
 
 const isCreateOpen = ref(false)
@@ -11,6 +11,7 @@ const formKey = ref(0)
 const items = ref<InvestDoctor[]>([])
 const isLoading = ref(false)
 const isSubmitting = ref(false)
+const deletingIds = ref<Set<string>>(new Set())
 
 const sortedItems = computed(() =>
   [...items.value].sort((a, b) => b.createdAtIso.localeCompare(a.createdAtIso)),
@@ -66,6 +67,27 @@ async function onCreate(payload: InvestDoctorCreateInput) {
   }
 }
 
+async function onDelete(id: string) {
+  const numericId = Number(id)
+  if (isNaN(numericId)) {
+    console.error('Invalid agent ID:', id)
+    alert('無法刪除：無效的 ID')
+    return
+  }
+
+  deletingIds.value.add(id)
+  try {
+    await deleteAgent(numericId)
+    // 刪除成功後重新載入列表，確保數據一致性
+    await loadAgents()
+  } catch (error) {
+    console.error('Failed to delete agent:', error)
+    alert('刪除投資大師失敗，請稍後再試')
+  } finally {
+    deletingIds.value.delete(id)
+  }
+}
+
 onMounted(() => {
   loadAgents()
 })
@@ -100,7 +122,13 @@ onMounted(() => {
       </div>
 
       <div v-else class="CardGrid">
-        <InvestDoctorCard v-for="item in sortedItems" :key="item.id" :item="item" />
+        <InvestDoctorCard
+          v-for="item in sortedItems"
+          :key="item.id"
+          :item="item"
+          :deleting="deletingIds.has(item.id)"
+          @delete="onDelete"
+        />
       </div>
     </section>
   </main>

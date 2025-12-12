@@ -2,9 +2,25 @@
 import Avatar from '../ui/Avatar.vue'
 import type { InvestDoctor } from '../../types/investDoctor'
 
-defineProps<{
-  item: InvestDoctor
+const props = withDefaults(
+  defineProps<{
+    item: InvestDoctor
+    deleting?: boolean
+  }>(),
+  {
+    deleting: false,
+  },
+)
+
+const emit = defineEmits<{
+  delete: [id: string]
 }>()
+
+function handleDelete() {
+  if (confirm('確定要刪除此投資大師嗎？')) {
+    emit('delete', props.item.id)
+  }
+}
 </script>
 
 <template>
@@ -23,6 +39,31 @@ defineProps<{
         <span class="Card__Label">建立時間</span>
         <span class="Card__Value Card__Value--mono">{{ item.createdAtIso }}</span>
       </div>
+    </div>
+    <div class="Card__Actions">
+      <button
+        class="Card__DeleteButton"
+        type="button"
+        :disabled="props.deleting"
+        @click="handleDelete"
+        aria-label="刪除"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <polyline points="3 6 5 6 21 6"></polyline>
+          <path d="m19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+        </svg>
+        {{ props.deleting ? '刪除中...' : '刪除' }}
+      </button>
     </div>
   </article>
 </template>
@@ -105,6 +146,39 @@ defineProps<{
     'Courier New', monospace;
   font-size: 12px;
   color: #a3a3a3;
+}
+
+.Card__Actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #404040;
+}
+
+.Card__DeleteButton {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #404040;
+  background: transparent;
+  color: #a3a3a3;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.Card__DeleteButton:hover:not(:disabled) {
+  border-color: #dc2626;
+  color: #dc2626;
+  background: rgba(220, 38, 38, 0.1);
+}
+
+.Card__DeleteButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 </style>
 
