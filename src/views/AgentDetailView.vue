@@ -1,9 +1,13 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import Dialog from '../components/ui/Dialog.vue'
 import Avatar from '../components/ui/Avatar.vue'
+import SystemPromptForm from '../components/InvestDoctor/SystemPromptForm.vue'
 import { getAgents } from '../services/agents'
+import { getAgentSystemPrompts, createAgentSystemPrompts } from '../services/agentSystemPrompts'
 import type { InvestDoctor } from '../types/investDoctor'
+import type { CreateAgentSystemPrompts } from '../types/CreateAgentSystemPrompts'
 
 const route = useRoute()
 const router = useRouter()
@@ -12,6 +16,14 @@ const agentId = route.params.id as string
 const agent = ref<InvestDoctor | null>(null)
 const isLoading = ref(false)
 const error = ref<string | null>(null)
+const isCreatePromptOpen = ref(false)
+const formKey = ref(0)
+const isSubmitting = ref(false)
+const systemPromptFormRef = ref<{ setAgentId: (id: number) => void; reset: () => void } | null>(
+  null,
+)
+const systemPrompts = ref<any[]>([])
+const isLoadingPrompts = ref(false)
 
 // 將 API 返回的數據轉換為 InvestDoctor 格式
 function mapAgentToInvestDoctor(agentData: any): InvestDoctor {
@@ -50,8 +62,58 @@ function goBack() {
   router.push('/')
 }
 
-onMounted(() => {
-  loadAgent()
+function openCreatePrompt() {
+  isCreatePromptOpen.value = true
+  formKey.value += 1
+  // 等待下一個 tick 確保組件已掛載
+  setTimeout(() => {
+    const numericId = Number(agentId)
+    if (!isNaN(numericId) && systemPromptFormRef.value) {
+      systemPromptFormRef.value.setAgentId(numericId)
+    }
+  }, 0)
+}
+
+function onCancelCreatePrompt() {
+  isCreatePromptOpen.value = false
+}
+
+async function loadSystemPrompts() {
+  const numericId = Number(agentId)
+  if (isNaN(numericId)) return
+
+  isLoadingPrompts.value = true
+  try {
+    const data = await getAgentSystemPrompts(numericId)
+
+    systemPrompts.value = Array.isArray(data) ? data : [data]
+  } catch (err) {
+    console.error('Failed to load system prompts:', err)
+    systemPrompts.value = []
+  } finally {
+    isLoadingPrompts.value = false
+  }
+}
+
+async function onCreatePrompt(payload: CreateAgentSystemPrompts) {
+  isSubmitting.value = true
+  try {
+    await createAgentSystemPrompts(payload)
+    alert('Investment Master MD 建立成功')
+    isCreatePromptOpen.value = false
+    // 重新載入 system prompts 列表
+    await loadSystemPrompts()
+  } catch (err) {
+    console.error('Failed to create system prompt:', err)
+    alert('建立 Investment Master MD 失敗，請稍後再試')
+  } finally {
+    isSubmitting.value = false
+  }
+}
+
+onMounted(async () => {
+  await loadAgent()
+  await loadSystemPrompts()
 })
 </script>
 
@@ -73,6 +135,14 @@ onMounted(() => {
           <polyline points="15 18 9 12 15 6"></polyline>
         </svg>
         返回
+      </button>
+      <button
+        v-if="agent"
+        class="DetailView__CreateButton"
+        type="button"
+        @click="openCreatePrompt"
+      >
+        建立 Investment Master MD
       </button>
     </header>
 
@@ -107,7 +177,45 @@ onMounted(() => {
           </div>
         </div>
       </div>
+
+      <div class="DetailView__Card">
+        <h2 class="DetailView__SectionTitle">Investment Master MD</h2>
+        <div v-if="isLoadingPrompts" class="DetailView__LoadingPrompts">載入中...</div>
+        <div v-else-if="systemPrompts.length === 0" class="DetailView__EmptyPrompts">
+          尚未建立 Investment Master MD，請點右上角「建立 Investment Master MD」開始。
+        </div>
+        <div v-else class="DetailView__PromptsList">
+          <div
+            v-for="prompt in systemPrompts"
+            :key="prompt.id ?? prompt.system_prompt_id"
+            class="DetailView__PromptItem"
+          >
+            <div class="DetailView__PromptHeader">
+              <span class="DetailView__PromptVersion">{{ prompt.version ?? 'N/A' }}</span>
+              <span
+                v-if="prompt.created_at || prompt.createdAtIso"
+                class="DetailView__PromptDate"
+              >
+                {{ prompt.created_at ?? prompt.createdAtIso }}
+              </span>
+            </div>
+            <div class="DetailView__PromptContent">
+              <pre class="DetailView__PromptPreview">{{ prompt.content ?? '' }}</pre>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
+
+    <Dialog v-model="isCreatePromptOpen" title="建立 Investment Master MD">
+      <SystemPromptForm
+        ref="systemPromptFormRef"
+        :key="formKey"
+        :submitting="isSubmitting"
+        @submit="onCreatePrompt"
+        @cancel="onCancelCreatePrompt"
+      />
+    </Dialog>
   </main>
 </template>
 
@@ -121,6 +229,10 @@ onMounted(() => {
 }
 
 .DetailView__Header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
   margin-bottom: 24px;
 }
 
@@ -141,6 +253,24 @@ onMounted(() => {
 .DetailView__BackButton:hover {
   border-color: #f97316;
   color: #f97316;
+}
+
+.DetailView__CreateButton {
+  border: 1px solid #f97316;
+  background: #f97316;
+  color: #000000;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 14px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background-color 0.2s, border-color 0.2s;
+  white-space: nowrap;
+}
+
+.DetailView__CreateButton:hover {
+  background: #ea580c;
+  border-color: #ea580c;
 }
 
 .DetailView__Loading,
@@ -225,6 +355,77 @@ onMounted(() => {
     'Courier New', monospace;
   font-size: 14px;
   color: #a3a3a3;
+}
+
+.DetailView__SectionTitle {
+  margin: 0 0 20px 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.DetailView__LoadingPrompts,
+.DetailView__EmptyPrompts {
+  text-align: center;
+  padding: 40px 20px;
+  color: #a3a3a3;
+  font-size: 14px;
+}
+
+.DetailView__PromptsList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.DetailView__PromptItem {
+  border: 1px solid #404040;
+  border-radius: 10px;
+  padding: 16px;
+  background: #000000;
+  transition: border-color 0.2s;
+}
+
+.DetailView__PromptItem:hover {
+  border-color: #f97316;
+}
+
+.DetailView__PromptHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #404040;
+}
+
+.DetailView__PromptVersion {
+  font-size: 16px;
+  font-weight: 600;
+  color: #f97316;
+}
+
+.DetailView__PromptDate {
+  font-size: 12px;
+  color: #a3a3a3;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Courier New', monospace;
+}
+
+.DetailView__PromptContent {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.DetailView__PromptPreview {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #ffffff;
+  white-space: pre-wrap;
+  word-wrap: break-word;
 }
 </style>
 
