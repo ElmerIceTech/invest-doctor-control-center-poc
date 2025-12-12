@@ -9,6 +9,7 @@ import {
   getAgentSystemPrompts,
   createAgentSystemPrompts,
   partialUpdateAgentSystemPrompt,
+  deleteAgentSystemPrompt,
 } from '../services/agentSystemPrompts'
 import type { InvestDoctor } from '../types/investDoctor'
 import type { CreateAgentSystemPrompts } from '../types/CreateAgentSystemPrompts'
@@ -33,6 +34,7 @@ const isLoadingPrompts = ref(false)
 const previewingPrompt = ref<any | null>(null)
 const isEditingInPreview = ref(false)
 const editingContent = ref('')
+const deletingIds = ref<Set<number>>(new Set())
 
 // 將 API 返回的數據轉換為 InvestDoctor 格式
 function mapAgentToInvestDoctor(agentData: any): InvestDoctor {
@@ -211,6 +213,35 @@ async function saveEditInPreview() {
     alert('更新 Investment Master MD 失敗，請稍後再試')
   } finally {
     isSubmitting.value = false
+  }
+}
+
+async function onDeletePrompt(prompt: any) {
+  const promptId = prompt.id ?? prompt.system_prompt_id
+  if (!promptId) {
+    console.error('Invalid prompt ID')
+    return
+  }
+
+  if (!confirm('確定要刪除此 Investment Master MD 嗎？')) {
+    return
+  }
+
+  deletingIds.value.add(promptId)
+  try {
+    await deleteAgentSystemPrompt(promptId)
+    // 如果正在預覽的是被刪除的 prompt，關閉預覽
+    if (previewingPrompt.value && (previewingPrompt.value.id ?? previewingPrompt.value.system_prompt_id) === promptId) {
+      isPreviewPromptOpen.value = false
+      previewingPrompt.value = null
+    }
+    // 重新載入 system prompts 列表
+    await loadSystemPrompts()
+  } catch (err) {
+    console.error('Failed to delete system prompt:', err)
+    alert('刪除 Investment Master MD 失敗，請稍後再試')
+  } finally {
+    deletingIds.value.delete(promptId)
   }
 }
 
@@ -427,6 +458,32 @@ onMounted(async () => {
             </div>
           </div>
           <div v-if="!isEditingInPreview" class="DetailView__PreviewActions">
+            <button
+              class="DetailView__PreviewDeleteButton"
+              type="button"
+              :disabled="deletingIds.has(previewingPrompt.id ?? previewingPrompt.system_prompt_id)"
+              @click="onDeletePrompt(previewingPrompt)"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path
+                  d="m19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+                ></path>
+                <line x1="10" y1="11" x2="10" y2="17"></line>
+                <line x1="14" y1="11" x2="14" y2="17"></line>
+              </svg>
+              {{ deletingIds.has(previewingPrompt.id ?? previewingPrompt.system_prompt_id) ? '刪除中...' : '刪除' }}
+            </button>
             <button
               class="DetailView__PreviewEditButton"
               type="button"
@@ -890,6 +947,33 @@ onMounted(async () => {
   color: #a3a3a3;
 }
 
+.DetailView__PreviewDeleteButton {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #ef4444;
+  background: transparent;
+  color: #ef4444;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 14px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.DetailView__PreviewDeleteButton:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+.DetailView__PreviewDeleteButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .DetailView__PreviewEditButton {
   display: flex;
   align-items: center;
@@ -977,6 +1061,7 @@ onMounted(async () => {
 .DetailView__PreviewActions {
   display: flex;
   align-items: center;
+  gap: 10px;
 }
 
 .DetailView__PreviewEditActions {
