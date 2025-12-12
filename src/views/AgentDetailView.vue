@@ -12,7 +12,7 @@ import {
   deleteAgentSystemPrompt,
 } from '../services/agentSystemPrompts'
 import { getAgentUserMessages, generateAgentUserMsg } from '../services/agentUserMessages'
-import { createAgentReport } from '../services/agentReports'
+import { createAgentReport, getAgenReports } from '../services/agentReports'
 import type { InvestDoctor } from '../types/investDoctor'
 import type { CreateAgentSystemPrompts } from '../types/CreateAgentSystemPrompts'
 
@@ -49,6 +49,10 @@ const isSystemPromptsVersionsOpen = ref(false)
 const systemPromptsVersions = ref<any[]>([])
 const isLoadingVersions = ref(false)
 const creatingReportIds = ref<Set<number>>(new Set())
+const reports = ref<any[]>([])
+const isLoadingReports = ref(false)
+const isPreviewReportOpen = ref(false)
+const previewingReport = ref<any | null>(null)
 
 // 將 API 返回的數據轉換為 InvestDoctor 格式
 function mapAgentToInvestDoctor(agentData: any): InvestDoctor {
@@ -287,9 +291,41 @@ async function loadUserMessages() {
   }
 }
 
+async function loadReports() {
+  if (!agent.value) return
+
+  const numericId = Number.parseInt(agent.value.id, 10)
+  if (Number.isNaN(numericId)) {
+    console.error('Invalid agent ID')
+    return
+  }
+
+  isLoadingReports.value = true
+  try {
+    const data = await getAgenReports(numericId)
+    if (data === null || data === undefined) {
+      reports.value = []
+    } else if (Array.isArray(data)) {
+      reports.value = data
+    } else {
+      reports.value = [data]
+    }
+  } catch (err) {
+    console.error('Failed to load reports:', err)
+    reports.value = []
+  } finally {
+    isLoadingReports.value = false
+  }
+}
+
 function openPreviewMessage(message: any) {
   previewingMessage.value = { ...message }
   isPreviewMessageOpen.value = true
+}
+
+function openPreviewReport(report: any) {
+  previewingReport.value = { ...report }
+  isPreviewReportOpen.value = true
 }
 
 function openCreateStockIntelligence() {
@@ -396,6 +432,8 @@ async function onCreateReport(prompt: any) {
       agents_user_message_id: agentsUserMessageId,
     })
     alert('建立 Report 成功')
+    // 重新載入 reports 列表
+    await loadReports()
   } catch (err) {
     console.error('Failed to create report:', err)
     alert('建立 Report 失敗，請稍後再試')
@@ -408,6 +446,7 @@ onMounted(async () => {
   await loadAgent()
   await loadSystemPrompts()
   await loadUserMessages()
+  await loadReports()
 })
 </script>
 
@@ -689,6 +728,87 @@ onMounted(async () => {
           </div>
         </div>
       </div>
+
+      <!-- Master Analysis Report Section -->
+      <div class="DetailView__Section">
+        <div class="DetailView__SectionHeader">
+          <h2 class="DetailView__SectionTitle">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="DetailView__SectionIcon"
+            >
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+            </svg>
+            Master Analysis Report
+          </h2>
+        </div>
+        <div v-if="isLoadingReports" class="DetailView__LoadingState">
+          <div class="DetailView__Spinner"></div>
+          <span>載入中...</span>
+        </div>
+        <div v-else-if="reports.length === 0" class="DetailView__EmptyState">
+          <div class="DetailView__EmptyIcon">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="48"
+              height="48"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+            </svg>
+          </div>
+          <p class="DetailView__EmptyTitle">尚無 Master Analysis Report</p>
+          <p class="DetailView__EmptyDescription">目前沒有報告記錄</p>
+        </div>
+        <div v-else class="DetailView__ReportsList">
+          <div
+            v-for="(report, index) in reports"
+            :key="report.id ?? report.report_id ?? index"
+            class="DetailView__ReportCard"
+            @click="openPreviewReport(report)"
+          >
+            <div class="DetailView__ReportHeader">
+              <div class="DetailView__ReportInfo">
+                <span class="DetailView__ReportId">Report ID: {{ report.id ?? report.report_id ?? 'N/A' }}</span>
+                <span
+                  v-if="report.system_prompt_id"
+                  class="DetailView__ReportSystemPromptId"
+                >
+                  System Prompt ID: {{ report.system_prompt_id }}
+                </span>
+              </div>
+              <span
+                v-if="report.created_at || report.createdAtIso"
+                class="DetailView__ReportTime"
+              >
+                {{ formatDate(report.created_at ?? report.createdAtIso) }}
+              </span>
+            </div>
+            <div v-if="report.content" class="DetailView__ReportContent">
+              <pre class="DetailView__ReportText">{{ truncateContent(report.content ?? '', 200) }}</pre>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Create Stock Intelligence Dialog -->
@@ -910,6 +1030,50 @@ onMounted(async () => {
             <span class="DetailView__PreviewLabel">內容</span>
             <pre class="DetailView__PreviewContentText">{{
               previewingMessage.content ?? previewingMessage.message ?? ''
+            }}</pre>
+          </div>
+        </div>
+      </div>
+    </Dialog>
+
+    <!-- Master Analysis Report Preview Dialog -->
+    <Dialog
+      v-model="isPreviewReportOpen"
+      title="Master Analysis Report 預覽"
+      size="xl"
+    >
+      <div v-if="previewingReport" class="DetailView__PreviewContent">
+        <div class="DetailView__PreviewHeader">
+          <div class="DetailView__PreviewMeta">
+            <div class="DetailView__PreviewField">
+              <span class="DetailView__PreviewLabel">Report ID</span>
+              <span class="DetailView__PreviewValue DetailView__PreviewValue--version">
+                {{ previewingReport.id ?? previewingReport.report_id ?? 'N/A' }}
+              </span>
+            </div>
+            <div v-if="previewingReport.system_prompt_id" class="DetailView__PreviewField">
+              <span class="DetailView__PreviewLabel">System Prompt ID</span>
+              <span class="DetailView__PreviewValue DetailView__PreviewValue--mono">
+                {{ previewingReport.system_prompt_id }}
+              </span>
+            </div>
+            <div class="DetailView__PreviewField">
+              <span class="DetailView__PreviewLabel">建立時間</span>
+              <span class="DetailView__PreviewValue DetailView__PreviewValue--mono">
+                {{
+                  formatDate(
+                    previewingReport.created_at ?? previewingReport.createdAtIso ?? '',
+                  )
+                }}
+              </span>
+            </div>
+          </div>
+        </div>
+        <div class="DetailView__PreviewBody">
+          <div class="DetailView__PreviewContentField">
+            <span class="DetailView__PreviewLabel">內容</span>
+            <pre class="DetailView__PreviewContentText">{{
+              previewingReport.content ?? ''
             }}</pre>
           </div>
         </div>
@@ -1797,6 +1961,85 @@ onMounted(async () => {
     'Courier New', monospace;
   font-size: 12px;
   line-height: 1.6;
+  color: #d1d5db;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+/* Master Analysis Report Styles */
+.DetailView__ReportsList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.DetailView__ReportCard {
+  border: 1px solid #404040;
+  border-radius: 12px;
+  padding: 20px;
+  background: #000000;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.DetailView__ReportCard:hover {
+  border-color: #f97316;
+  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.1);
+  transform: translateY(-2px);
+}
+
+.DetailView__ReportCard:active {
+  transform: translateY(0);
+}
+
+.DetailView__ReportHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+  gap: 16px;
+}
+
+.DetailView__ReportInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.DetailView__ReportId {
+  font-size: 14px;
+  color: #f97316;
+  font-weight: 600;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Courier New', monospace;
+}
+
+.DetailView__ReportSystemPromptId {
+  font-size: 12px;
+  color: #6b7280;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Courier New', monospace;
+}
+
+.DetailView__ReportTime {
+  font-size: 11px;
+  color: #6b7280;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Courier New', monospace;
+  white-space: nowrap;
+}
+
+.DetailView__ReportContent {
+  flex: 1;
+}
+
+.DetailView__ReportText {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.7;
   color: #d1d5db;
   white-space: pre-wrap;
   word-wrap: break-word;
