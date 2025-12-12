@@ -5,7 +5,11 @@ import Dialog from '../components/ui/Dialog.vue'
 import Avatar from '../components/ui/Avatar.vue'
 import SystemPromptForm from '../components/InvestDoctor/SystemPromptForm.vue'
 import { getAgents } from '../services/agents'
-import { getAgentSystemPrompts, createAgentSystemPrompts } from '../services/agentSystemPrompts'
+import {
+  getAgentSystemPrompts,
+  createAgentSystemPrompts,
+  partialUpdateAgentSystemPrompt,
+} from '../services/agentSystemPrompts'
 import type { InvestDoctor } from '../types/investDoctor'
 import type { CreateAgentSystemPrompts } from '../types/CreateAgentSystemPrompts'
 
@@ -17,13 +21,22 @@ const agent = ref<InvestDoctor | null>(null)
 const isLoading = ref(false)
 const error = ref<string | null>(null)
 const isCreatePromptOpen = ref(false)
+const isEditPromptOpen = ref(false)
 const formKey = ref(0)
+const editFormKey = ref(0)
 const isSubmitting = ref(false)
-const systemPromptFormRef = ref<{ setAgentId: (id: number) => void; reset: () => void } | null>(
-  null,
-)
+const systemPromptFormRef = ref<{
+  setAgentId: (id: number) => void
+  reset: () => void
+} | null>(null)
+const editPromptFormRef = ref<{
+  setAgentId: (id: number) => void
+  setInitialValues: (version: string, content: string) => void
+  reset: () => void
+} | null>(null)
 const systemPrompts = ref<any[]>([])
 const isLoadingPrompts = ref(false)
+const editingPrompt = ref<any | null>(null)
 
 // 將 API 返回的數據轉換為 InvestDoctor 格式
 function mapAgentToInvestDoctor(agentData: any): InvestDoctor {
@@ -133,6 +146,60 @@ async function onCreatePrompt(payload: CreateAgentSystemPrompts) {
   } catch (err) {
     console.error('Failed to create system prompt:', err)
     alert('建立 Investment Master MD 失敗，請稍後再試')
+  } finally {
+    isSubmitting.value = false
+  }
+}
+
+function openEditPrompt(prompt: any) {
+  editingPrompt.value = prompt
+  isEditPromptOpen.value = true
+  editFormKey.value += 1
+  // 等待下一個 tick 確保組件已掛載
+  setTimeout(() => {
+    const numericId = Number(agentId)
+    if (!isNaN(numericId) && editPromptFormRef.value) {
+      editPromptFormRef.value.setAgentId(numericId)
+      editPromptFormRef.value.setInitialValues(
+        prompt.version ?? '',
+        prompt.content ?? '',
+      )
+    }
+  }, 0)
+}
+
+function onCancelEditPrompt() {
+  isEditPromptOpen.value = false
+  editingPrompt.value = null
+}
+
+async function onUpdatePrompt(payload: CreateAgentSystemPrompts) {
+  if (!editingPrompt.value) return
+
+  isSubmitting.value = true
+  try {
+    const numericId = Number(agentId)
+    const promptId = Number(
+      editingPrompt.value.id ?? editingPrompt.value.system_prompt_id ?? 0,
+    )
+
+    if (isNaN(numericId) || isNaN(promptId)) {
+      throw new Error('Invalid agent ID or prompt ID')
+    }
+
+    await partialUpdateAgentSystemPrompt({
+      agentId: numericId,
+      agentSystemPromptId: promptId,
+      content: payload.content,
+    })
+
+    isEditPromptOpen.value = false
+    editingPrompt.value = null
+    // 重新載入 system prompts 列表
+    await loadSystemPrompts()
+  } catch (err) {
+    console.error('Failed to update system prompt:', err)
+    alert('更新 Investment Master MD 失敗，請稍後再試')
   } finally {
     isSubmitting.value = false
   }
@@ -294,6 +361,7 @@ onMounted(async () => {
             v-for="prompt in systemPrompts"
             :key="prompt.id ?? prompt.system_prompt_id"
             class="DetailView__PromptCard"
+            @click="openEditPrompt(prompt)"
           >
             <div class="DetailView__PromptCardHeader">
               <div class="DetailView__PromptBadge">{{ prompt.version ?? 'N/A' }}</div>
@@ -317,8 +385,22 @@ onMounted(async () => {
         ref="systemPromptFormRef"
         :key="formKey"
         :submitting="isSubmitting"
+        :is-edit-mode="false"
         @submit="onCreatePrompt"
         @cancel="onCancelCreatePrompt"
+      />
+    </Dialog>
+
+    <Dialog v-model="isEditPromptOpen" title="編輯 Investment Master MD">
+      <SystemPromptForm
+        ref="editPromptFormRef"
+        :key="editFormKey"
+        :submitting="isSubmitting"
+        :is-edit-mode="true"
+        :initial-version="editingPrompt?.version ?? ''"
+        :initial-content="editingPrompt?.content ?? ''"
+        @submit="onUpdatePrompt"
+        @cancel="onCancelEditPrompt"
       />
     </Dialog>
   </main>
@@ -611,6 +693,7 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  cursor: pointer;
 }
 
 .DetailView__PromptCard:hover {

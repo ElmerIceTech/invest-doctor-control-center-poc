@@ -1,13 +1,19 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import type { CreateAgentSystemPrompts } from '../../types/CreateAgentSystemPrompts'
 
 const props = withDefaults(
   defineProps<{
     submitting?: boolean
+    initialVersion?: string
+    initialContent?: string
+    isEditMode?: boolean
   }>(),
   {
     submitting: false,
+    initialVersion: '',
+    initialContent: '',
+    isEditMode: false,
   },
 )
 
@@ -18,16 +24,28 @@ const emit = defineEmits<{
 
 const form = reactive<CreateAgentSystemPrompts>({
   agentId: 0,
-  version: '',
-  content: '',
+  version: props.initialVersion,
+  content: props.initialContent,
 })
+
+// 監聽初始值變化（用於編輯模式）
+watch(
+  () => [props.initialVersion, props.initialContent],
+  ([newVersion, newContent]) => {
+    if (props.isEditMode) {
+      form.version = newVersion
+      form.content = newContent
+    }
+  },
+  { immediate: true },
+)
 
 const isTouched = ref(false)
 
 const errors = computed(() => {
   const next: Partial<Record<keyof CreateAgentSystemPrompts, string>> = {}
 
-  if (!form.version.trim()) next.version = '請輸入版本號'
+  if (!props.isEditMode && !form.version.trim()) next.version = '請輸入版本號'
   if (!form.content.trim()) next.content = '請輸入內容'
 
   return next
@@ -50,10 +68,14 @@ function onSubmit() {
   })
 }
 
-// 暴露方法供父組件設置 agentId
+// 暴露方法供父組件設置 agentId 和初始值
 defineExpose({
   setAgentId: (id: number) => {
     form.agentId = id
+  },
+  setInitialValues: (version: string, content: string) => {
+    form.version = version
+    form.content = content
   },
   reset: () => {
     form.version = ''
@@ -66,7 +88,7 @@ defineExpose({
 <template>
   <form class="SystemPromptForm" @submit.prevent="onSubmit">
     <div class="SystemPromptForm__Fields">
-      <div class="SystemPromptForm__Field">
+      <div v-if="!props.isEditMode" class="SystemPromptForm__Field">
         <label class="SystemPromptForm__Label" for="version">版本號</label>
         <input
           id="version"
@@ -81,6 +103,10 @@ defineExpose({
         <p v-if="isTouched && errors.version" id="versionError" class="SystemPromptForm__Error">
           {{ errors.version }}
         </p>
+      </div>
+      <div v-else class="SystemPromptForm__Field">
+        <label class="SystemPromptForm__Label">版本號</label>
+        <div class="SystemPromptForm__ReadOnlyValue">{{ form.version || 'N/A' }}</div>
       </div>
 
       <div class="SystemPromptForm__Field">
@@ -109,7 +135,7 @@ defineExpose({
         取消
       </button>
       <button class="SystemPromptForm__Button" type="submit" :disabled="props.submitting">
-        建立
+        {{ props.isEditMode ? '更新' : '建立' }}
       </button>
     </div>
   </form>
@@ -210,6 +236,15 @@ defineExpose({
   background: #1a1a1a;
   border-color: #f97316;
   color: #f97316;
+}
+
+.SystemPromptForm__ReadOnlyValue {
+  padding: 10px 12px;
+  border: 1px solid #404040;
+  border-radius: 10px;
+  background: #0a0a0a;
+  color: #a3a3a3;
+  font-size: 14px;
 }
 </style>
 
