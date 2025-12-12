@@ -25,6 +25,28 @@ function handleDelete() {
 
 <template>
   <article class="Card">
+    <button
+      class="Card__DeleteButton"
+      type="button"
+      :disabled="props.deleting"
+      @click="handleDelete"
+      aria-label="刪除"
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <polyline points="3 6 5 6 21 6"></polyline>
+        <path d="m19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+      </svg>
+    </button>
     <div class="Card__Header">
       <div class="Card__HeaderContent">
         <Avatar :name="item.name" :size="48" />
@@ -40,36 +62,12 @@ function handleDelete() {
         <span class="Card__Value Card__Value--mono">{{ item.createdAtIso }}</span>
       </div>
     </div>
-    <div class="Card__Actions">
-      <button
-        class="Card__DeleteButton"
-        type="button"
-        :disabled="props.deleting"
-        @click="handleDelete"
-        aria-label="刪除"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <polyline points="3 6 5 6 21 6"></polyline>
-          <path d="m19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-        </svg>
-        {{ props.deleting ? '刪除中...' : '刪除' }}
-      </button>
-    </div>
   </article>
 </template>
 
 <style scoped>
 .Card {
+  position: relative;
   border: 1px solid #404040;
   border-radius: 12px;
   background: #1a1a1a;
@@ -148,32 +146,35 @@ function handleDelete() {
   color: #a3a3a3;
 }
 
-.Card__Actions {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid #404040;
-}
-
 .Card__DeleteButton {
+  position: absolute;
+  top: 12px;
+  right: 12px;
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
   border: 1px solid #404040;
-  background: transparent;
+  background: rgba(26, 26, 26, 0.9);
+  backdrop-filter: blur(4px);
   color: #a3a3a3;
   border-radius: 8px;
-  padding: 6px 12px;
-  font-size: 13px;
+  padding: 0;
   cursor: pointer;
-  transition: all 0.2s;
+  opacity: 0;
+  transition: opacity 0.2s, border-color 0.2s, color 0.2s, background-color 0.2s;
+  z-index: 10;
+}
+
+.Card:hover .Card__DeleteButton {
+  opacity: 1;
 }
 
 .Card__DeleteButton:hover:not(:disabled) {
   border-color: #dc2626;
   color: #dc2626;
-  background: rgba(220, 38, 38, 0.1);
+  background: rgba(220, 38, 38, 0.2);
 }
 
 .Card__DeleteButton:disabled {
