@@ -12,6 +12,7 @@ import {
   deleteAgentSystemPrompt,
 } from '../services/agentSystemPrompts'
 import { getAgentUserMessages, generateAgentUserMsg } from '../services/agentUserMessages'
+import { createAgentReport } from '../services/agentReports'
 import type { InvestDoctor } from '../types/investDoctor'
 import type { CreateAgentSystemPrompts } from '../types/CreateAgentSystemPrompts'
 
@@ -43,6 +44,11 @@ const previewingMessage = ref<any | null>(null)
 const isGeneratingUserMsg = ref(false)
 const isCreateStockIntelligenceOpen = ref(false)
 const stockIdInput = ref('2330.TW')
+const isExecutingReport = ref(false)
+const isSystemPromptsVersionsOpen = ref(false)
+const systemPromptsVersions = ref<any[]>([])
+const isLoadingVersions = ref(false)
+const creatingReportIds = ref<Set<number>>(new Set())
 
 // 將 API 返回的數據轉換為 InvestDoctor 格式
 function mapAgentToInvestDoctor(agentData: any): InvestDoctor {
@@ -322,6 +328,79 @@ async function onCreateStockIntelligence() {
     alert('建立 Stock Intelligence 失敗，請稍後再試')
   } finally {
     isGeneratingUserMsg.value = false
+  }
+}
+
+async function onExecuteReport() {
+  if (!agent.value) return
+
+  const numericId = Number.parseInt(agent.value.id, 10)
+  if (Number.isNaN(numericId)) {
+    console.error('Invalid agent ID')
+    return
+  }
+
+  isExecutingReport.value = true
+  isLoadingVersions.value = true
+  try {
+    // 獲取所有的 system prompts
+    const data = await getAgentSystemPrompts(numericId)
+    
+    if (data === null || data === undefined) {
+      systemPromptsVersions.value = []
+    } else if (Array.isArray(data)) {
+      systemPromptsVersions.value = data
+    } else {
+      systemPromptsVersions.value = [data]
+    }
+    
+    // 顯示版本列表 dialog
+    isSystemPromptsVersionsOpen.value = true
+  } catch (err) {
+    console.error('Failed to execute report:', err)
+    alert('獲取版本列表失敗，請稍後再試')
+  } finally {
+    isExecutingReport.value = false
+    isLoadingVersions.value = false
+  }
+}
+
+async function onCreateReport(prompt: any) {
+  if (!agent.value) return
+  if (!previewingMessage.value) return
+
+  const numericId = Number.parseInt(agent.value.id, 10)
+  if (Number.isNaN(numericId)) {
+    console.error('Invalid agent ID')
+    return
+  }
+
+  const systemPromptId = prompt.id ?? prompt.system_prompt_id
+  if (!systemPromptId) {
+    console.error('Invalid system prompt ID')
+    return
+  }
+
+  const agentsUserMessageId = previewingMessage.value.id ?? previewingMessage.value.user_message_id ?? previewingMessage.value.agents_user_message_id
+  if (!agentsUserMessageId) {
+    console.error('Invalid agents user message ID')
+    alert('無法獲取 User Message ID')
+    return
+  }
+
+  creatingReportIds.value.add(systemPromptId)
+  try {
+    await createAgentReport({
+      agent_id: numericId,
+      system_prompt_id: systemPromptId,
+      agents_user_message_id: agentsUserMessageId,
+    })
+    alert('建立 Report 成功')
+  } catch (err) {
+    console.error('Failed to create report:', err)
+    alert('建立 Report 失敗，請稍後再試')
+  } finally {
+    creatingReportIds.value.delete(systemPromptId)
   }
 }
 
@@ -802,6 +881,29 @@ onMounted(async () => {
               </span>
             </div>
           </div>
+          <div class="DetailView__PreviewActions">
+            <button
+              class="DetailView__PreviewExecuteButton"
+              type="button"
+              @click="onExecuteReport"
+              :disabled="isExecutingReport"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+              </svg>
+              {{ isExecutingReport ? '執行中...' : '執行版本' }}
+            </button>
+          </div>
         </div>
         <div class="DetailView__PreviewBody">
           <div class="DetailView__PreviewContentField">
@@ -809,6 +911,42 @@ onMounted(async () => {
             <pre class="DetailView__PreviewContentText">{{
               previewingMessage.content ?? previewingMessage.message ?? ''
             }}</pre>
+          </div>
+        </div>
+      </div>
+    </Dialog>
+
+    <!-- System Prompts Versions Dialog -->
+    <Dialog
+      v-model="isSystemPromptsVersionsOpen"
+      title="System Prompt 版本列表"
+      size="lg"
+    >
+      <div v-if="isLoadingVersions" class="DetailView__LoadingState">
+        <div class="DetailView__Spinner"></div>
+        <span>載入中...</span>
+      </div>
+      <div v-else-if="systemPromptsVersions.length === 0" class="DetailView__EmptyState">
+        <p class="DetailView__EmptyTitle">尚無 System Prompt 版本</p>
+      </div>
+      <div v-else class="DetailView__VersionsList">
+        <div
+          v-for="(prompt, index) in systemPromptsVersions"
+          :key="prompt.id ?? prompt.system_prompt_id ?? index"
+          class="DetailView__VersionCard"
+          @click="onCreateReport(prompt)"
+        >
+          <div class="DetailView__VersionHeader">
+            <span class="DetailView__VersionBadge">{{ prompt.version ?? 'N/A' }}</span>
+            <span
+              v-if="prompt.created_at || prompt.createdAtIso"
+              class="DetailView__VersionTime"
+            >
+              {{ formatDate(prompt.created_at ?? prompt.createdAtIso) }}
+            </span>
+          </div>
+          <div class="DetailView__VersionContent">
+            <pre class="DetailView__VersionText">{{ truncateContent(prompt.content ?? '', 150) }}</pre>
           </div>
         </div>
       </div>
@@ -1340,6 +1478,32 @@ onMounted(async () => {
   border-color: #ea580c;
 }
 
+.DetailView__PreviewExecuteButton {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #10b981;
+  background: #10b981;
+  color: #000000;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 14px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.DetailView__PreviewExecuteButton:hover:not(:disabled) {
+  background: #059669;
+  border-color: #059669;
+}
+
+.DetailView__PreviewExecuteButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .DetailView__PreviewBody {
   display: flex;
   flex-direction: column;
@@ -1565,6 +1729,77 @@ onMounted(async () => {
 .DetailView__FormSubmitButton:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+/* System Prompts Versions Styles */
+.DetailView__VersionsList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.DetailView__VersionCard {
+  border: 1px solid #404040;
+  border-radius: 10px;
+  padding: 16px;
+  background: #000000;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.DetailView__VersionCard:hover {
+  border-color: #f97316;
+  box-shadow: 0 2px 8px rgba(249, 115, 22, 0.1);
+  transform: translateY(-2px);
+}
+
+.DetailView__VersionCard:active {
+  transform: translateY(0);
+}
+
+.DetailView__VersionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  gap: 12px;
+}
+
+.DetailView__VersionBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  background: rgba(249, 115, 22, 0.15);
+  color: #f97316;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid rgba(249, 115, 22, 0.3);
+}
+
+.DetailView__VersionTime {
+  font-size: 11px;
+  color: #6b7280;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Courier New', monospace;
+  white-space: nowrap;
+}
+
+.DetailView__VersionContent {
+  flex: 1;
+}
+
+.DetailView__VersionText {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #d1d5db;
+  white-space: pre-wrap;
+  word-wrap: break-word;
 }
 </style>
 
