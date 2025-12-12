@@ -41,6 +41,8 @@ const isLoadingUserMessages = ref(false)
 const isPreviewMessageOpen = ref(false)
 const previewingMessage = ref<any | null>(null)
 const isGeneratingUserMsg = ref(false)
+const isCreateStockIntelligenceOpen = ref(false)
+const stockIdInput = ref('2330.TW')
 
 // 將 API 返回的數據轉換為 InvestDoctor 格式
 function mapAgentToInvestDoctor(agentData: any): InvestDoctor {
@@ -284,6 +286,16 @@ function openPreviewMessage(message: any) {
   isPreviewMessageOpen.value = true
 }
 
+function openCreateStockIntelligence() {
+  stockIdInput.value = '2330.TW'
+  isCreateStockIntelligenceOpen.value = true
+}
+
+function onCancelCreateStockIntelligence() {
+  isCreateStockIntelligenceOpen.value = false
+  stockIdInput.value = '2330.TW'
+}
+
 async function onCreateStockIntelligence() {
   if (!agent.value) return
 
@@ -293,9 +305,16 @@ async function onCreateStockIntelligence() {
     return
   }
 
+  if (!stockIdInput.value.trim()) {
+    alert('請輸入 Stock ID')
+    return
+  }
+
   isGeneratingUserMsg.value = true
   try {
-    await generateAgentUserMsg(numericId, "2330.TW")
+    await generateAgentUserMsg(numericId, stockIdInput.value.trim())
+    // 關閉 dialog
+    isCreateStockIntelligenceOpen.value = false
     // 重新載入 user messages 列表
     await loadUserMessages()
   } catch (err) {
@@ -498,7 +517,7 @@ onMounted(async () => {
             v-if="userMessages.length > 0"
             class="DetailView__AddButton"
             type="button"
-            @click="onCreateStockIntelligence"
+            @click="openCreateStockIntelligence"
             :disabled="isGeneratingUserMsg"
             aria-label="建立 Stock Intelligence"
           >
@@ -544,7 +563,7 @@ onMounted(async () => {
           <button
             class="DetailView__EmptyButton"
             type="button"
-            @click="onCreateStockIntelligence"
+            @click="openCreateStockIntelligence"
             :disabled="isGeneratingUserMsg"
           >
             <svg
@@ -592,6 +611,48 @@ onMounted(async () => {
         </div>
       </div>
     </div>
+
+    <!-- Create Stock Intelligence Dialog -->
+    <Dialog
+      v-model="isCreateStockIntelligenceOpen"
+      title="建立 Stock Intelligence"
+      size="md"
+    >
+      <div class="DetailView__CreateStockIntelligenceForm">
+        <div class="DetailView__FormField">
+          <label class="DetailView__FormLabel" for="stock-id-input">
+            Stock ID
+          </label>
+          <input
+            id="stock-id-input"
+            v-model="stockIdInput"
+            type="text"
+            class="DetailView__FormInput"
+            placeholder="例如: 2330.TW"
+            :disabled="isGeneratingUserMsg"
+          />
+          <p class="DetailView__FormHint">請輸入股票代碼，例如：2330.TW</p>
+        </div>
+        <div class="DetailView__FormActions">
+          <button
+            class="DetailView__FormCancelButton"
+            type="button"
+            @click="onCancelCreateStockIntelligence"
+            :disabled="isGeneratingUserMsg"
+          >
+            取消
+          </button>
+          <button
+            class="DetailView__FormSubmitButton"
+            type="button"
+            @click="onCreateStockIntelligence"
+            :disabled="isGeneratingUserMsg || !stockIdInput.trim()"
+          >
+            {{ isGeneratingUserMsg ? '建立中...' : '建立' }}
+          </button>
+        </div>
+      </div>
+    </Dialog>
 
     <Dialog v-model="isCreatePromptOpen" title="建立 Investment Master MD" size="md">
       <SystemPromptForm
@@ -1398,6 +1459,110 @@ onMounted(async () => {
 }
 
 .DetailView__PreviewSaveButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Create Stock Intelligence Form Styles */
+.DetailView__CreateStockIntelligenceForm {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.DetailView__FormField {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.DetailView__FormLabel {
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.DetailView__FormInput {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid #404040;
+  border-radius: 8px;
+  background: #000000;
+  color: #ffffff;
+  font-size: 14px;
+  outline: none;
+  transition: all 0.2s;
+  box-sizing: border-box;
+}
+
+.DetailView__FormInput:focus {
+  border-color: #f97316;
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
+}
+
+.DetailView__FormInput:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.DetailView__FormInput::placeholder {
+  color: #525252;
+}
+
+.DetailView__FormHint {
+  margin: 0;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.DetailView__FormActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 8px;
+}
+
+.DetailView__FormCancelButton {
+  border: 1px solid #404040;
+  background: #000000;
+  color: #ffffff;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 14px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.DetailView__FormCancelButton:hover:not(:disabled) {
+  background: #1a1a1a;
+  border-color: #f97316;
+  color: #f97316;
+}
+
+.DetailView__FormCancelButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.DetailView__FormSubmitButton {
+  border: 1px solid #f97316;
+  background: #f97316;
+  color: #000000;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 14px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.DetailView__FormSubmitButton:hover:not(:disabled) {
+  background: #ea580c;
+  border-color: #ea580c;
+}
+
+.DetailView__FormSubmitButton:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
