@@ -1188,15 +1188,15 @@ onMounted(async () => {
         <div class="DetailView__PreviewHeader">
           <div class="DetailView__PreviewMeta">
             <div class="DetailView__PreviewField">
-              <span class="DetailView__PreviewLabel">Report ID</span>
-              <span class="DetailView__PreviewValue DetailView__PreviewValue--version">
-                {{ previewingReport.id ?? previewingReport.report_id ?? 'N/A' }}
+              <span class="DetailView__PreviewLabel">Agent Name</span>
+              <span class="DetailView__PreviewValue">
+                {{ agent?.name ?? 'N/A' }}
               </span>
             </div>
-            <div v-if="previewingReport.system_prompt_id" class="DetailView__PreviewField">
-              <span class="DetailView__PreviewLabel">System Prompt ID</span>
-              <span class="DetailView__PreviewValue DetailView__PreviewValue--mono">
-                {{ previewingReport.system_prompt_id }}
+            <div v-if="previewingReport.user_message?.stock_id" class="DetailView__PreviewField">
+              <span class="DetailView__PreviewLabel">Stock ID</span>
+              <span class="DetailView__PreviewValue">
+                {{ previewingReport.user_message.stock_id }}
               </span>
             </div>
             <div class="DetailView__PreviewField">
