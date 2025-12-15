@@ -118,28 +118,49 @@ function truncateContent(content: string, maxLength: number = 200): string {
   return content.substring(0, maxLength) + '...'
 }
 
-function parseContentToList(content: string): Array<{ key: string; value: any }> {
+function parseContentToList(content: string): Array<{ key: string; value: any; isArray: boolean }> {
   if (!content) return []
   
   try {
     // 嘗試解析為 JSON
     const parsed = JSON.parse(content)
-    if (typeof parsed === 'object' && parsed !== null) {
-      return Object.entries(parsed).map(([key, value]) => ({
-        key,
-        value: typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value),
+    
+    // 如果是數組，直接返回數組項目的列表
+    if (Array.isArray(parsed)) {
+      return parsed.map((item, index) => ({
+        key: `項目 ${index + 1}`,
+        value: typeof item === 'object' ? JSON.stringify(item, null, 2) : String(item),
+        isArray: false,
       }))
     }
+    
+    // 如果是對象，轉換為鍵值對列表
+    if (typeof parsed === 'object' && parsed !== null) {
+      return Object.entries(parsed).map(([key, value]) => {
+        const isArray = Array.isArray(value)
+        return {
+          key,
+          value: isArray ? value : (typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value)),
+          isArray,
+        }
+      })
+    }
+    
+    // 如果是基本類型，直接顯示
+    return [{
+      key: '內容',
+      value: String(parsed),
+      isArray: false,
+    }]
   } catch {
     // 如果不是 JSON，按行分割
     const lines = content.split('\n').filter(line => line.trim())
     return lines.map((line, index) => ({
       key: `項目 ${index + 1}`,
       value: line.trim(),
+      isArray: false,
     }))
   }
-  
-  return []
 }
 
 function openCreatePrompt() {
@@ -1293,7 +1314,16 @@ onMounted(async () => {
                 class="DetailView__ReportContentItem"
               >
                 <span class="DetailView__ReportContentKey">{{ item.key }}:</span>
-                <span class="DetailView__ReportContentValue">{{ item.value }}</span>
+                <ul v-if="item.isArray" class="DetailView__ReportContentArray">
+                  <li
+                    v-for="(arrayItem, arrayIndex) in item.value"
+                    :key="arrayIndex"
+                    class="DetailView__ReportContentArrayItem"
+                  >
+                    {{ typeof arrayItem === 'object' ? JSON.stringify(arrayItem, null, 2) : String(arrayItem) }}
+                  </li>
+                </ul>
+                <span v-else class="DetailView__ReportContentValue">{{ item.value }}</span>
               </div>
             </div>
             <div v-else class="DetailView__ReportContentEmpty">
@@ -2584,6 +2614,26 @@ onMounted(async () => {
     'Courier New', monospace;
   white-space: pre-wrap;
   word-wrap: break-word;
+}
+
+.DetailView__ReportContentArray {
+  margin: 8px 0 0 0;
+  padding-left: 20px;
+  list-style-type: disc;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.DetailView__ReportContentArrayItem {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #ffffff;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Courier New', monospace;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  padding: 4px 0;
 }
 
 .DetailView__ReportContentEmpty {
