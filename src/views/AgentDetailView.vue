@@ -118,6 +118,30 @@ function truncateContent(content: string, maxLength: number = 200): string {
   return content.substring(0, maxLength) + '...'
 }
 
+function parseContentToList(content: string): Array<{ key: string; value: any }> {
+  if (!content) return []
+  
+  try {
+    // 嘗試解析為 JSON
+    const parsed = JSON.parse(content)
+    if (typeof parsed === 'object' && parsed !== null) {
+      return Object.entries(parsed).map(([key, value]) => ({
+        key,
+        value: typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value),
+      }))
+    }
+  } catch {
+    // 如果不是 JSON，按行分割
+    const lines = content.split('\n').filter(line => line.trim())
+    return lines.map((line, index) => ({
+      key: `項目 ${index + 1}`,
+      value: line.trim(),
+    }))
+  }
+  
+  return []
+}
+
 function openCreatePrompt() {
   isCreatePromptOpen.value = true
   formKey.value += 1
@@ -1262,9 +1286,19 @@ onMounted(async () => {
         <div class="DetailView__PreviewBody">
           <div class="DetailView__PreviewContentField">
             <span class="DetailView__PreviewLabel">內容</span>
-            <pre class="DetailView__PreviewContentText">{{
-              previewingReport.content ?? ''
-            }}</pre>
+            <div v-if="previewingReport.content" class="DetailView__ReportContentList">
+              <div
+                v-for="(item, index) in parseContentToList(previewingReport.content)"
+                :key="index"
+                class="DetailView__ReportContentItem"
+              >
+                <span class="DetailView__ReportContentKey">{{ item.key }}:</span>
+                <span class="DetailView__ReportContentValue">{{ item.value }}</span>
+              </div>
+            </div>
+            <div v-else class="DetailView__ReportContentEmpty">
+              無內容
+            </div>
           </div>
         </div>
       </div>
@@ -2404,6 +2438,9 @@ onMounted(async () => {
   background: #000000;
   transition: all 0.2s;
   cursor: pointer;
+  overflow: hidden;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .DetailView__ReportCard:hover {
@@ -2483,6 +2520,8 @@ onMounted(async () => {
 
 .DetailView__ReportContent {
   flex: 1;
+  overflow: hidden;
+  min-width: 0;
 }
 
 .DetailView__ReportText {
@@ -2492,6 +2531,66 @@ onMounted(async () => {
   font-size: 13px;
   line-height: 1.7;
   color: #d1d5db;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.DetailView__ReportContentList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid #404040;
+  border-radius: 10px;
+  background: #000000;
+  max-height: calc(95vh - 300px);
+  overflow-y: auto;
+  flex: 1;
+  min-height: 200px;
+}
+
+.DetailView__ReportContentItem {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid #404040;
+  border-radius: 8px;
+  background: #0a0a0a;
+  transition: all 0.2s;
+}
+
+.DetailView__ReportContentItem:hover {
+  border-color: #f97316;
+  background: #1a0a00;
+}
+
+.DetailView__ReportContentKey {
+  font-size: 13px;
+  font-weight: 600;
+  color: #f97316;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Courier New', monospace;
+}
+
+.DetailView__ReportContentValue {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #ffffff;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Courier New', monospace;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.DetailView__ReportContentEmpty {
+  padding: 16px;
+  text-align: center;
+  color: #6b7280;
+  font-size: 14px;
   white-space: pre-wrap;
   word-wrap: break-word;
 }
