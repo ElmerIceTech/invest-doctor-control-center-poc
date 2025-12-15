@@ -928,13 +928,15 @@ onMounted(async () => {
           >
             <div class="DetailView__ReportHeader">
               <div class="DetailView__ReportInfo">
-                <span class="DetailView__ReportId">Report ID: {{ report.id ?? report.report_id ?? 'N/A' }}</span>
-                <span
-                  v-if="report.system_prompt_id"
-                  class="DetailView__ReportSystemPromptId"
-                >
-                  System Prompt ID: {{ report.system_prompt_id }}
-                </span>
+                <div class="DetailView__ReportTitleRow">
+                  <span class="DetailView__ReportAgentName">{{ agent?.name ?? 'N/A' }}</span>
+                  <span
+                    v-if="report.user_message?.stock_id"
+                    class="DetailView__ReportStockId"
+                  >
+                    {{ report.user_message.stock_id }}
+                  </span>
+                </div>
               </div>
               <span
                 v-if="report.created_at || report.createdAtIso"
@@ -2429,10 +2431,37 @@ onMounted(async () => {
   flex: 1;
 }
 
-.DetailView__ReportId {
-  font-size: 14px;
-  color: #f97316;
+.DetailView__ReportTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.DetailView__ReportAgentName {
+  font-size: 18px;
+  color: #ffffff;
   font-weight: 600;
+}
+
+.DetailView__ReportStockId {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  background: rgba(249, 115, 22, 0.15);
+  color: #f97316;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid rgba(249, 115, 22, 0.3);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Courier New', monospace;
+}
+
+.DetailView__ReportId {
+  font-size: 13px;
+  color: #6b7280;
+  font-weight: 500;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
     'Courier New', monospace;
 }
