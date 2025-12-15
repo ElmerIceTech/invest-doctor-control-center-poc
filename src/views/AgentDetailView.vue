@@ -54,6 +54,10 @@ const isLoadingReports = ref(false)
 const isPreviewReportOpen = ref(false)
 const previewingReport = ref<any | null>(null)
 const activeTab = ref<'md' | 'intelligence' | 'report'>('md')
+const isSystemPromptDetailOpen = ref(false)
+const isUserMessageDetailOpen = ref(false)
+const viewingSystemPrompt = ref<any | null>(null)
+const viewingUserMessage = ref<any | null>(null)
 
 // 將 API 返回的數據轉換為 InvestDoctor 格式
 function mapAgentToInvestDoctor(agentData: any): InvestDoctor {
@@ -276,7 +280,6 @@ async function loadUserMessages() {
   isLoadingUserMessages.value = true
   try {
     const data = await getAgentUserMessages(numericId)
-    console.log(data)
     if (data === null || data === undefined) {
       userMessages.value = []
     } else if (Array.isArray(data)) {
@@ -327,6 +330,74 @@ function openPreviewMessage(message: any) {
 function openPreviewReport(report: any) {
   previewingReport.value = { ...report }
   isPreviewReportOpen.value = true
+}
+
+async function openSystemPromptDetail() {
+  if (!previewingReport.value || !agent.value) return
+
+  const systemPromptId = previewingReport.value.system_prompt.id
+  if (!systemPromptId) {
+    alert('此報告沒有關聯的 System Prompt')
+    return
+  }
+
+  const numericId = Number.parseInt(agent.value.id, 10)
+  if (Number.isNaN(numericId)) {
+    console.error('Invalid agent ID')
+    return
+  }
+
+  try {
+    const data = await getAgentSystemPrompts(numericId)
+    const prompts = Array.isArray(data) ? data : [data]
+    const prompt = prompts.find(
+      (p: any) => (p.id ?? p.system_prompt_id) === systemPromptId
+    )
+
+    if (prompt) {
+      viewingSystemPrompt.value = prompt
+      isSystemPromptDetailOpen.value = true
+    } else {
+      alert('找不到對應的 System Prompt')
+    }
+  } catch (err) {
+    console.error('Failed to load system prompt:', err)
+    alert('載入 System Prompt 失敗，請稍後再試')
+  }
+}
+
+async function openUserMessageDetail() {
+  if (!previewingReport.value || !agent.value) return
+
+  const agentsUserMessageId = previewingReport.value.user_message.id
+  if (!agentsUserMessageId) {
+    alert('此報告沒有關聯的 User Message')
+    return
+  }
+
+  const numericId = Number.parseInt(agent.value.id, 10)
+  if (Number.isNaN(numericId)) {
+    console.error('Invalid agent ID')
+    return
+  }
+
+  try {
+    const data = await getAgentUserMessages(numericId)
+    const messages = Array.isArray(data) ? data : data === null || data === undefined ? [] : [data]
+    const message = messages.find(
+      (m: any) => (m.id ?? m.user_message_id ?? m.agents_user_message_id) === agentsUserMessageId
+    )
+
+    if (message) {
+      viewingUserMessage.value = message
+      isUserMessageDetailOpen.value = true
+    } else {
+      alert('找不到對應的 User Message')
+    }
+  } catch (err) {
+    console.error('Failed to load user message:', err)
+    alert('載入 User Message 失敗，請稍後再試')
+  }
 }
 
 function openCreateStockIntelligence() {
@@ -1137,12 +1208,136 @@ onMounted(async () => {
               </span>
             </div>
           </div>
+          <div class="DetailView__PreviewActions">
+            <button
+              v-if="previewingReport.system_prompt.id"
+              class="DetailView__PreviewViewButton"
+              type="button"
+              @click="openSystemPromptDetail"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="16" y1="13" x2="8" y2="13"></line>
+                <line x1="16" y1="17" x2="8" y2="17"></line>
+              </svg>
+              查看 System Prompt
+            </button>
+            <button
+              v-if="previewingReport.user_message.id"
+              class="DetailView__PreviewViewButton"
+              type="button"
+              @click="openUserMessageDetail"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <line x1="12" y1="1" x2="12" y2="23"></line>
+                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+              </svg>
+              查看 User Message
+            </button>
+          </div>
         </div>
         <div class="DetailView__PreviewBody">
           <div class="DetailView__PreviewContentField">
             <span class="DetailView__PreviewLabel">內容</span>
             <pre class="DetailView__PreviewContentText">{{
               previewingReport.content ?? ''
+            }}</pre>
+          </div>
+        </div>
+      </div>
+    </Dialog>
+
+    <!-- System Prompt Detail Dialog -->
+    <Dialog
+      v-model="isSystemPromptDetailOpen"
+      title="System Prompt 詳情"
+      size="xl"
+    >
+      <div v-if="viewingSystemPrompt" class="DetailView__PreviewContent">
+        <div class="DetailView__PreviewHeader">
+          <div class="DetailView__PreviewMeta">
+            <div class="DetailView__PreviewField">
+              <span class="DetailView__PreviewLabel">版本號</span>
+              <span class="DetailView__PreviewValue DetailView__PreviewValue--version">
+                {{ viewingSystemPrompt.version ?? 'N/A' }}
+              </span>
+            </div>
+            <div class="DetailView__PreviewField">
+              <span class="DetailView__PreviewLabel">建立時間</span>
+              <span class="DetailView__PreviewValue DetailView__PreviewValue--mono">
+                {{
+                  formatDate(
+                    viewingSystemPrompt.created_at ?? viewingSystemPrompt.createdAtIso ?? '',
+                  )
+                }}
+              </span>
+            </div>
+          </div>
+        </div>
+        <div class="DetailView__PreviewBody">
+          <div class="DetailView__PreviewContentField">
+            <span class="DetailView__PreviewLabel">內容</span>
+            <pre class="DetailView__PreviewContentText">{{
+              viewingSystemPrompt.content ?? ''
+            }}</pre>
+          </div>
+        </div>
+      </div>
+    </Dialog>
+
+    <!-- User Message Detail Dialog -->
+    <Dialog
+      v-model="isUserMessageDetailOpen"
+      title="User Message 詳情"
+      size="xl"
+    >
+      <div v-if="viewingUserMessage" class="DetailView__PreviewContent">
+        <div class="DetailView__PreviewHeader">
+          <div class="DetailView__PreviewMeta">
+            <div class="DetailView__PreviewField">
+              <span class="DetailView__PreviewLabel">Stock ID</span>
+              <span class="DetailView__PreviewValue DetailView__PreviewValue--version">
+                {{ viewingUserMessage.stock_id ?? 'N/A' }}
+              </span>
+            </div>
+            <div class="DetailView__PreviewField">
+              <span class="DetailView__PreviewLabel">建立時間</span>
+              <span class="DetailView__PreviewValue DetailView__PreviewValue--mono">
+                {{
+                  formatDate(
+                    viewingUserMessage.created_at ?? viewingUserMessage.createdAtIso ?? '',
+                  )
+                }}
+              </span>
+            </div>
+          </div>
+        </div>
+        <div class="DetailView__PreviewBody">
+          <div class="DetailView__PreviewContentField">
+            <span class="DetailView__PreviewLabel">內容</span>
+            <pre class="DetailView__PreviewContentText">{{
+              viewingUserMessage.content ?? viewingUserMessage.message ?? ''
             }}</pre>
           </div>
         </div>
@@ -1871,6 +2066,28 @@ onMounted(async () => {
 .DetailView__PreviewExecuteButton:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.DetailView__PreviewViewButton {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #404040;
+  background: transparent;
+  color: #ffffff;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 14px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.DetailView__PreviewViewButton:hover {
+  background: rgba(249, 115, 22, 0.1);
+  border-color: #f97316;
+  color: #f97316;
 }
 
 .DetailView__PreviewBody {
