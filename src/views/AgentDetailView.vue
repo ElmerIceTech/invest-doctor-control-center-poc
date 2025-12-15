@@ -2048,8 +2048,8 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 6px;
-  border: 1px solid #10b981;
-  background: #10b981;
+  border: 1px solid #f97316;
+  background: #f97316;
   color: #000000;
   border-radius: 8px;
   padding: 10px 16px;
@@ -2061,8 +2061,8 @@ onMounted(async () => {
 }
 
 .DetailView__PreviewExecuteButton:hover:not(:disabled) {
-  background: #059669;
-  border-color: #059669;
+  background: #ea580c;
+  border-color: #ea580c;
 }
 
 .DetailView__PreviewExecuteButton:disabled {
